@@ -1,0 +1,11 @@
+# Secrets
+.env
+
+# Foundry
+out/
+cache/
+lib/
+
+# OS
+.DS_Store
+Thumbs.db
