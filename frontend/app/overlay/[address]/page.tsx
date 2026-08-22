@@ -88,9 +88,15 @@ export default function OverlayPage() {
               : 'opacity-0 translate-y-6 scale-95'
           }`}
         >
-          <div className="bg-neutral-900/95 border-2 border-blue-500 rounded-2xl px-8 py-5 shadow-2xl shadow-blue-500/40 flex items-center gap-4">
-            <div className="text-4xl">🎉</div>
-            <div>
+          {/* Glow effect behind card */}
+          <div className="absolute inset-0 rounded-2xl bg-blue-500/20 blur-xl animate-pulse-ring" />
+          
+          <div className="relative bg-neutral-900/95 border-2 border-blue-500 rounded-2xl px-8 py-5 shadow-2xl shadow-blue-500/40 flex items-center gap-4">
+            {/* Animated gradient border overlay */}
+            <div className="absolute inset-0 rounded-2xl opacity-30 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-500 bg-[length:200%_100%] animate-[btn-shimmer_3s_linear_infinite] mix-blend-overlay" />
+            
+            <div className="relative text-4xl animate-success-bounce">🎉</div>
+            <div className="relative">
               <p className="text-blue-400 font-bold text-lg leading-tight">
                 New Tip: ${current.amount} USDC!
               </p>
