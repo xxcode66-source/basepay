@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
+import BackgroundEffects from '@/components/BackgroundEffects';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} bg-[#0a0a0a] text-white antialiased`}>
+        <BackgroundEffects />
         <Providers>
           {children}
         </Providers>
