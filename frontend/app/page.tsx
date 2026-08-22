@@ -66,12 +66,19 @@ export default function GeneratorPage() {
   };
 
   return (
-    <div className="bg-ambient">
+    <div className="bg-ambient bg-grid min-h-screen">
+      {/* Floating orbs */}
+      <div className="orb-container">
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
+        <div className="orb orb-3" />
+      </div>
+
       <main className="min-h-screen flex flex-col">
         {/* ── Nav ──────────────────────────────────────────── */}
-        <nav className="w-full px-6 py-5 flex items-center justify-between max-w-5xl mx-auto">
+        <nav className="w-full px-6 py-5 flex items-center justify-between max-w-5xl mx-auto animate-fade-in-down">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center animate-float">
               <span className="text-white text-xs font-bold">B</span>
             </div>
             <span className="text-sm font-semibold tracking-tight">BasePay</span>
@@ -80,8 +87,9 @@ export default function GeneratorPage() {
             href="https://base.org"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+            className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors flex items-center gap-1.5"
           >
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
             Built on Base
           </a>
         </nav>
@@ -89,7 +97,7 @@ export default function GeneratorPage() {
         {/* ── Hero ─────────────────────────────────────────── */}
         <section className="flex-1 flex flex-col items-center px-6 pt-12 pb-20">
           <div className="text-center max-w-lg mx-auto mb-12 animate-fade-in-up">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium mb-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
               USDC on Base Network
             </div>
@@ -106,7 +114,7 @@ export default function GeneratorPage() {
           {/* ── Generator Card ─────────────────────────────── */}
           <div className="w-full max-w-md animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
             {!submitted ? (
-              <div className="glass-card rounded-2xl p-6 space-y-5">
+              <div className="glass-card glass-card-glow rounded-2xl p-6 space-y-5">
                 <div className="flex items-center gap-3 mb-1">
                   <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400">
                     <IconQr />
@@ -146,7 +154,7 @@ export default function GeneratorPage() {
                 </button>
               </div>
             ) : (
-              <div className="glass-card rounded-2xl p-6 flex flex-col items-center space-y-5 animate-scale-in">
+              <div className="glass-card glass-card-glow rounded-2xl p-6 flex flex-col items-center space-y-5 animate-scale-in">
                 {/* QR Display */}
                 <div className="flex items-center gap-3 self-start">
                   <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
@@ -220,11 +228,14 @@ export default function GeneratorPage() {
               {STEPS.map((s) => (
                 <div
                   key={s.num}
-                  className="glass-card rounded-xl p-5 space-y-2"
+                  className="glass-card glass-card-glow rounded-xl p-5 space-y-2 group hover:border-blue-500/20 transition-all duration-300"
                 >
-                  <span className="text-xs font-mono text-blue-400/60">{s.num}</span>
-                  <h4 className="text-sm font-semibold">{s.title}</h4>
-                  <p className="text-xs text-neutral-500 leading-relaxed">{s.desc}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-blue-400/60 group-hover:text-blue-400 transition-colors">{s.num}</span>
+                    <div className="h-px flex-1 bg-gradient-to-r from-blue-500/20 to-transparent" />
+                  </div>
+                  <h4 className="text-sm font-semibold group-hover:text-blue-100 transition-colors">{s.title}</h4>
+                  <p className="text-xs text-neutral-500 leading-relaxed group-hover:text-neutral-400 transition-colors">{s.desc}</p>
                 </div>
               ))}
             </div>
@@ -232,13 +243,16 @@ export default function GeneratorPage() {
         </section>
 
         {/* ── Footer ──────────────────────────────────────── */}
-        <footer className="w-full px-6 py-6 border-t border-neutral-800/50">
+        <footer className="w-full px-6 py-6 border-t border-neutral-800/50 backdrop-blur-sm">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-xs text-neutral-600">
               BasePay — Non-custodial tip jar. Send USDC to anyone, anywhere.
             </p>
             <div className="flex items-center gap-4">
-              <span className="text-xs text-neutral-600">5% platform fee</span>
+              <span className="text-xs text-neutral-600 flex items-center gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-emerald-500/50" />
+                5% platform fee
+              </span>
               <span className="w-1 h-1 rounded-full bg-neutral-700" />
               <span className="text-xs text-neutral-600">USDC · Base</span>
             </div>
