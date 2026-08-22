@@ -38,12 +38,13 @@ fi
 forge create src/TipRouter.sol:TipRouter \
   --rpc-url https://mainnet.base.org \
   --private-key "$PRIVATE_KEY" \
+  --chain-id 8453 \
+    --broadcast \
+  $VERIFY_FLAG \
   --constructor-args \
     0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
     0xB3082C43B1A881635ddB0e0F4d42F83da52eA03F \
-    0xc8446B28203A7324406d48Ce879F32fbE6f962a4 \
-  --chain-id 8453 \
-  $VERIFY_FLAG
+    0xc8446B28203A7324406d48Ce879F32fbE6f962a4
 
 echo ""
 echo "=== Deploy successful! ==="

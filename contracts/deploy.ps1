@@ -38,11 +38,8 @@ $args = @(
     "src/TipRouter.sol:TipRouter",
     "--rpc-url", "https://mainnet.base.org",
     "--private-key", $env:PRIVATE_KEY,
-    "--constructor-args",
-        "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "0xB3082C43B1A881635ddB0e0F4d42F83da52eA03F",
-        "0xc8446B28203A7324406d48Ce879F32fbE6f962a4",
-    "--chain-id", "8453"
+    "--chain-id", "8453",
+    "--broadcast"
 )
 
 # Add verify flag if API key available
@@ -51,6 +48,11 @@ if ($env:BASESCAN_API_KEY) {
     $args += "--etherscan-api-key"
     $args += $env:BASESCAN_API_KEY
 }
+
+$args += "--constructor-args"
+$args += "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+$args += "0xB3082C43B1A881635ddB0e0F4d42F83da52eA03F"
+$args += "0xc8446B28203A7324406d48Ce879F32fbE6f962a4"
 
 # Deploy
 & forge @args
