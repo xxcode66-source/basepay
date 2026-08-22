@@ -23,6 +23,36 @@ import ContractBanner from '@/components/ContractBanner';
 import TipHistory from '@/components/TipHistory';
 import ShareButtons from '@/components/ShareButtons';
 
+/* ── Confetti Component ──────────────────────────────────── */
+function Confetti() {
+  const pieces = Array.from({ length: 30 }, (_, i) => ({
+    id: i,
+    left: Math.random() * 100,
+    delay: Math.random() * 0.5,
+    duration: 1 + Math.random() * 1.5,
+    color: ['#3b82f6', '#10b981', '#6366f1', '#f59e0b', '#ec4899'][i % 5],
+    size: 4 + Math.random() * 6,
+  }));
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {pieces.map((p) => (
+        <div
+          key={p.id}
+          className="absolute rounded-sm"
+          style={{
+            left: `${p.left}%`,
+            top: '-10px',
+            width: p.size,
+            height: p.size,
+            backgroundColor: p.color,
+            animation: `confetti-fall ${p.duration}s ease-in ${p.delay}s forwards`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 /* ── Constants ───────────────────────────────────────────── */
 const QUICK_AMOUNTS = [1, 5, 10, 25];
 const PLATFORM_FEE_BPS = 500;
@@ -302,7 +332,13 @@ export default function TipPage() {
   const tipUrl = `${APP_URL}/tip/${recipientAddress}`;
 
   return (
-    <div className="bg-ambient">
+    <div className="bg-ambient bg-grid min-h-screen">
+      {/* Floating orbs */}
+      <div className="orb-container">
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
+      </div>
+
       <main className="min-h-screen flex flex-col px-5 py-6 max-w-md mx-auto">
         {/* ── Header ──────────────────────────────────────── */}
         <header className="flex items-center justify-between mb-6">
@@ -338,10 +374,12 @@ export default function TipPage() {
         {/* ── Content ─────────────────────────────────────── */}
         <div className="flex-1 flex flex-col">
           {step === 'success' ? (
-            <div className="space-y-6 animate-scale-in">
+            <>
+              <Confetti />
+              <div className="space-y-6 animate-scale-in">
               {/* Success Card */}
-              <div className="glass-card rounded-2xl p-8 text-center space-y-4 border-emerald-500/20">
-                <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400">
+              <div className="glass-card glass-card-glow rounded-2xl p-8 text-center space-y-4 border-emerald-500/20 animate-glow-pulse">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400 animate-success-bounce">
                   <IconCheck />
                 </div>
                 <div>
@@ -366,6 +404,7 @@ export default function TipPage() {
                 <ShareButtons url={tipUrl} address={recipientAddress} />
               </div>
             </div>
+            </>
           ) : (
             <div className="space-y-4 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
               {/* Goal Progress */}
@@ -374,7 +413,7 @@ export default function TipPage() {
               )}
 
               {/* Amount Input */}
-              <div className="glass-card rounded-2xl p-6 space-y-5">
+              <div className="glass-card glass-card-glow rounded-2xl p-6 space-y-5">
                 <div className="text-center">
                   <div className="flex items-center justify-center gap-1">
                     <span className="text-neutral-500 text-3xl font-bold">$</span>
@@ -401,10 +440,10 @@ export default function TipPage() {
                       key={val}
                       disabled={isBusy}
                       onClick={() => setAmount(String(val))}
-                      className={`rounded-xl py-2.5 text-sm font-medium transition-all disabled:opacity-50 ${
+                      className={`rounded-xl py-2.5 text-sm font-medium transition-all duration-200 disabled:opacity-50 ${
                         amount === String(val)
-                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                          : 'bg-neutral-800/50 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 border border-neutral-700/50'
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 scale-105'
+                          : 'bg-neutral-800/50 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 hover:scale-105 border border-neutral-700/50'
                       }`}
                     >
                       ${val}
@@ -432,7 +471,7 @@ export default function TipPage() {
               </div>
 
               {/* Message Input */}
-              <div className="glass-card rounded-xl p-4 space-y-2">
+              <div className="glass-card glass-card-glow rounded-xl p-4 space-y-2">
                 <div className="flex items-center gap-1.5 text-xs text-neutral-400">
                   <IconMessage />
                   <span>Add a message (optional)</span>
@@ -464,7 +503,9 @@ export default function TipPage() {
                 <button
                   onClick={handleSendTip}
                   disabled={isBusy || parsedAmount === 0n}
-                  className="btn-primary w-full rounded-xl py-4 font-semibold text-base flex items-center justify-center gap-2"
+                  className={`w-full rounded-xl py-4 font-semibold text-base flex items-center justify-center gap-2 ${
+                    isBusy ? 'btn-primary' : 'btn-primary btn-shimmer'
+                  }`}
                 >
                   {step === 'approving' ? (
                     <>
@@ -485,7 +526,7 @@ export default function TipPage() {
                   {({ openConnectModal }) => (
                     <button
                       onClick={openConnectModal}
-                      className="btn-primary w-full rounded-xl py-4 font-semibold text-base"
+                      className="btn-primary btn-shimmer w-full rounded-xl py-4 font-semibold text-base"
                     >
                       Connect Wallet
                     </button>
