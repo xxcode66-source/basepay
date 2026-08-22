@@ -174,14 +174,15 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
 
   return (
     <div className="space-y-2">
-      {events.map((tip) => {
+      {events.map((tip, index) => {
         const msg = storedMessages.find(
           (m) => m.txHash?.toLowerCase() === tip.id.split('-')[0].toLowerCase()
         );
         return (
           <div
             key={tip.id}
-            className="glass-card rounded-xl p-4 space-y-1.5 animate-fade-in"
+            className="glass-card glass-card-glow rounded-xl p-4 space-y-1.5 animate-tip-slide-in"
+            style={{ animationDelay: `${index * 0.05}s` }}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -195,7 +196,7 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
               </span>
             </div>
             {msg?.message && (
-              <p className="text-xs text-neutral-400 italic pl-8">
+              <p className="text-xs text-neutral-400 italic pl-8 animate-fade-in" style={{ animationDelay: '0.2s' }}>
                 &ldquo;{msg.message}&rdquo;
               </p>
             )}
