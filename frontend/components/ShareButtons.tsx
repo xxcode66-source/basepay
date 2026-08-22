@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { IconCheck, IconCopy, IconShare } from '@/lib/ui-icons';
 
 /* ── Icons ───────────────────────────────────────────────── */
@@ -19,6 +19,7 @@ interface ShareButtonsProps {
 
 export default function ShareButtons({ url, address }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
+  const [canNativeShare, setCanNativeShare] = useState(false);
   const shortAddr = `${address.slice(0, 6)}...${address.slice(-4)}`;
 
   const tweetText = encodeURIComponent(
@@ -46,6 +47,11 @@ export default function ShareButtons({ url, address }: ShareButtonsProps) {
     }
   };
 
+  // Check native share support after hydration
+  useEffect(() => {
+    setCanNativeShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function');
+  }, []);
+
   return (
     <div className="flex items-center gap-2">
       {/* Twitter / X */}
@@ -61,7 +67,7 @@ export default function ShareButtons({ url, address }: ShareButtonsProps) {
       </a>
 
       {/* Native share (mobile) */}
-      {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+      {canNativeShare && (
         <button
           onClick={handleNativeShare}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-800/50 hover:bg-neutral-800 border border-neutral-700/50 text-neutral-400 hover:text-neutral-200 text-xs transition-all"
