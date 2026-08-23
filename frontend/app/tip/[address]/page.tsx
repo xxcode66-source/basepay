@@ -60,6 +60,7 @@ function Confetti() {
 /* ── Constants ───────────────────────────────────────────── */
 const QUICK_AMOUNTS = [1, 5, 10, 25];
 const PLATFORM_FEE_BPS = 500;
+const BASE_MAINNET_CHAIN_ID = 8453;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 type Step = 'idle' | 'signing' | 'tipping' | 'success' | 'error';
@@ -247,6 +248,7 @@ export default function TipPage() {
       setStep('signing');
       const deadline = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
       const signature = await signTypedDataAsync({
+        account: senderAddress!,
         types: USDC_PERMIT_TYPES,
         primaryType: 'Permit',
         domain: USDC_PERMIT_DOMAIN(USDC_ADDRESS, chainId),
@@ -261,6 +263,8 @@ export default function TipPage() {
       const { v, r, s } = parseSignature(signature);
       setStep('tipping');
       await writeTip({
+        account: senderAddress!,
+        chainId: BASE_MAINNET_CHAIN_ID,
         address: TIP_ROUTER_ADDRESS,
         abi: TIP_ROUTER_ABI,
         functionName: 'tip',
@@ -292,6 +296,11 @@ export default function TipPage() {
   const handleSendTip = async () => {
     setErrorMsg('');
     if (isBusy || parsedAmount === 0n) return;
+    if (chainId !== BASE_MAINNET_CHAIN_ID) {
+      setStep('error');
+      setErrorMsg('Please switch your wallet to Base mainnet before sending a tip.');
+      return;
+    }
 
     try {
       await sendTip();
