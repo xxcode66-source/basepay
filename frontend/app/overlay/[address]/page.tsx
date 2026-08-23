@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { usePublicClient } from 'wagmi';
-import { decodeEventLog, formatUnits, isAddress, parseAbiItem, type Address } from 'viem';
+import { formatUnits, isAddress, keccak256, toHex, type Address } from 'viem';
 import { TIP_ROUTER_ADDRESS, USDC_DECIMALS } from '@/lib/contracts';
 import { useBasename } from '@/lib/basename';
 
@@ -17,9 +16,8 @@ const DISPLAY_DURATION_MS = 7000;
 const EXIT_ANIMATION_MS = 500;
 const BASE_MAINNET_CHAIN_ID = 8453;
 const INITIAL_LOOKBACK_BLOCKS = 20n;
-const TIP_SENT_EVENT = parseAbiItem(
-  'event TipSent(address indexed sender,address indexed streamer,uint256 totalAmount,uint256 feeAmount,uint256 streamerAmount)'
-);
+const BASE_RPC_URL = 'https://mainnet.base.org';
+const TIP_SENT_TOPIC = keccak256(toHex('TipSent(address,address,uint256,uint256,uint256)'));
 
 export default function OverlayPage() {
   const params = useParams<{ address: string }>();
@@ -30,12 +28,11 @@ export default function OverlayPage() {
   const [visible, setVisible] = useState(false);
   const { name: senderName } = useBasename(current?.sender ?? undefined);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const publicClient = usePublicClient({ chainId: BASE_MAINNET_CHAIN_ID });
   const lastBlockRef = useRef<bigint | null>(null);
   const seenLogsRef = useRef(new Set<string>());
 
   useEffect(() => {
-    if (!publicClient || !isAddress(recipientAddress)) return;
+    if (!isAddress(recipientAddress)) return;
     let stopped = false;
     let polling = false;
 
@@ -43,7 +40,13 @@ export default function OverlayPage() {
       if (stopped || polling) return;
       polling = true;
       try {
-        const latestBlock = await publicClient.getBlockNumber();
+        const blockResponse = await fetch(BASE_RPC_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }),
+        });
+        const blockData = await blockResponse.json();
+        const latestBlock = BigInt(blockData.result);
         if (lastBlockRef.current === null) {
           lastBlockRef.current = latestBlock > INITIAL_LOOKBACK_BLOCKS
             ? latestBlock - INITIAL_LOOKBACK_BLOCKS
@@ -51,22 +54,34 @@ export default function OverlayPage() {
         }
         if (latestBlock <= lastBlockRef.current) return;
 
-        const logs = await publicClient.getLogs({
-          address: TIP_ROUTER_ADDRESS,
-          event: TIP_SENT_EVENT,
-          args: { streamer: recipientAddress },
-          fromBlock: lastBlockRef.current + 1n,
-          toBlock: latestBlock,
+        const paddedRecipient = `0x${recipientAddress.slice(2).toLowerCase().padStart(64, '0')}`;
+        const logsResponse = await fetch(BASE_RPC_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'eth_getLogs',
+            params: [{
+              address: TIP_ROUTER_ADDRESS,
+              fromBlock: `0x${(lastBlockRef.current + 1n).toString(16)}`,
+              toBlock: `0x${latestBlock.toString(16)}`,
+              topics: [TIP_SENT_TOPIC, null, paddedRecipient],
+            }],
+          }),
         });
+        const logsData = await logsResponse.json();
+        if (logsData.error) throw new Error(logsData.error.message);
         lastBlockRef.current = latestBlock;
 
-        const incoming: TipAlert[] = logs.flatMap((log) => {
+        const incoming: TipAlert[] = (logsData.result ?? []).flatMap((log: { transactionHash: string; logIndex: string; topics: string[]; data: string }) => {
           const id = `${log.transactionHash}-${log.logIndex}`;
           if (seenLogsRef.current.has(id)) return [];
           seenLogsRef.current.add(id);
-          const decoded = decodeEventLog({ abi: [TIP_SENT_EVENT], data: log.data, topics: log.topics });
-          const args = decoded.args as { sender: Address; streamerAmount: bigint };
-          return [{ id, sender: args.sender, amount: formatUnits(args.streamerAmount, USDC_DECIMALS) }];
+          const data = log.data.slice(2);
+          const sender = `0x${log.topics[1].slice(-40)}` as Address;
+          const streamerAmount = BigInt(`0x${data.slice(128, 192)}`);
+          return [{ id, sender, amount: formatUnits(streamerAmount, USDC_DECIMALS) }];
         });
         if (incoming.length > 0) setQueue((prev) => [...prev, ...incoming]);
       } finally {
@@ -80,7 +95,7 @@ export default function OverlayPage() {
       stopped = true;
       window.clearInterval(interval);
     };
-  }, [publicClient, recipientAddress]);
+  }, [recipientAddress]);
 
   useEffect(() => {
     if (current || queue.length === 0) return;
