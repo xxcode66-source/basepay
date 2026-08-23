@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import {
@@ -9,18 +9,17 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useSignTypedData,
+  useChainId,
 } from 'wagmi';
-import { parseUnits, isAddress, type Address } from 'viem';
+import { parseUnits, isAddress, parseSignature, type Address } from 'viem';
 import {
   TIP_ROUTER_ABI,
   TIP_ROUTER_ADDRESS,
   USDC_ADDRESS,
   USDC_DECIMALS,
   ERC20_ABI,
-  PERMIT2_ADDRESS,
-  PERMIT2_ABI,
-  PERMIT2_DOMAIN,
-  PERMIT2_TYPES,
+  USDC_PERMIT_DOMAIN,
+  USDC_PERMIT_TYPES,
 } from '@/lib/contracts';
 import { DisplayName } from '@/lib/basename';
 import { IconAlert, IconTarget, IconMessage } from '@/lib/ui-icons';
@@ -204,7 +203,7 @@ export default function TipPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [goal, setGoalState] = useState(0);
   const [raised, setRaised] = useState(0);
-  const pendingTipRef = useRef(false);
+  const chainId = useChainId();
 
   const validRecipient = isAddress(recipientAddress);
   const parsedAmount = amount ? parseUnits(amount, USDC_DECIMALS) : 0n;
@@ -229,73 +228,49 @@ export default function TipPage() {
     setRaised(total / 1e6);
   };
 
-  const { data: permit2Allowance, refetch: refetchPermit2Allowance } = useReadContract({
+  const { data: nonceData } = useReadContract({
     address: USDC_ADDRESS,
     abi: ERC20_ABI,
-    functionName: 'allowance',
-    args: senderAddress ? [senderAddress, PERMIT2_ADDRESS] : undefined,
+    functionName: 'nonces',
+    args: senderAddress ? [senderAddress] : undefined,
     query: { enabled: !!senderAddress },
   });
-
-  const { writeContractAsync: writeApprovePermit2, data: approveHash } = useWriteContract();
+  const currentNonce = (nonceData as bigint | undefined) ?? 0n;
   const { writeContractAsync: writeTip, data: tipHash } = useWriteContract();
 
-  const { isSuccess: approveConfirmed } = useWaitForTransactionReceipt({
-    hash: approveHash,
-  });
   const { isSuccess: tipConfirmed } = useWaitForTransactionReceipt({
     hash: tipHash,
   });
 
-  const needsApproval = permit2Allowance === undefined || (permit2Allowance as bigint) < parsedAmount;
-
   const sendTip = async () => {
     try {
       setStep('signing');
-      const bytes = new Uint8Array(32);
-      crypto.getRandomValues(bytes);
-      const feeNonce = BigInt(`0x${Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('')}`);
-      let streamerNonce = feeNonce;
-      while (streamerNonce === feeNonce) {
-        crypto.getRandomValues(bytes);
-        streamerNonce = BigInt(`0x${Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('')}`);
-      }
       const deadline = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
-      const feeSig = await signTypedDataAsync({
-        types: PERMIT2_TYPES,
-        primaryType: 'PermitTransferFrom',
-        domain: PERMIT2_DOMAIN,
-        message: { permitted: { token: USDC_ADDRESS, amount: feeAmount }, nonce: feeNonce, deadline },
+      const signature = await signTypedDataAsync({
+        types: USDC_PERMIT_TYPES,
+        primaryType: 'Permit',
+        domain: USDC_PERMIT_DOMAIN(USDC_ADDRESS, chainId),
+        message: {
+          owner: senderAddress!,
+          spender: TIP_ROUTER_ADDRESS,
+          value: parsedAmount,
+          nonce: currentNonce,
+          deadline,
+        },
       });
-      const streamerSig = await signTypedDataAsync({
-        types: PERMIT2_TYPES,
-        primaryType: 'PermitTransferFrom',
-        domain: PERMIT2_DOMAIN,
-        message: { permitted: { token: USDC_ADDRESS, amount: recipientReceives }, nonce: streamerNonce, deadline },
-      });
+      const { v, r, s } = parseSignature(signature);
       setStep('tipping');
       await writeTip({
         address: TIP_ROUTER_ADDRESS,
         abi: TIP_ROUTER_ABI,
         functionName: 'tip',
-        args: [recipientAddress, parsedAmount, feeNonce, streamerNonce, deadline, feeSig, streamerSig],
+        args: [recipientAddress, parsedAmount, deadline, currentNonce, Number(v), r, s],
       });
     } catch (err: any) {
       setStep('error');
       setErrorMsg(err?.shortMessage ?? 'Transaction was rejected or failed.');
     }
   };
-
-  useEffect(() => {
-    if (approveConfirmed) {
-      refetchPermit2Allowance();
-      if (pendingTipRef.current) {
-        pendingTipRef.current = false;
-        sendTip();
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [approveConfirmed]);
 
   // On success: store message + update step
   useEffect(() => {
@@ -319,18 +294,7 @@ export default function TipPage() {
     if (isBusy || parsedAmount === 0n) return;
 
     try {
-      if (needsApproval) {
-        setStep('signing');
-        pendingTipRef.current = true;
-        await writeApprovePermit2({
-          address: USDC_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: 'approve',
-          args: [PERMIT2_ADDRESS, BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')],
-        });
-      } else {
-        await sendTip();
-      }
+      await sendTip();
     } catch (err: any) {
       setStep('error');
       setErrorMsg(err?.shortMessage ?? 'Transaction was rejected or failed.');

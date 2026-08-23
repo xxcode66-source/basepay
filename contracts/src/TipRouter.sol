@@ -1,96 +1,52 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-interface ISignatureTransfer {
-    struct TokenPermissions { address token; uint256 amount; }
-    struct PermitTransferFrom { TokenPermissions permitted; uint256 nonce; uint256 deadline; }
-    struct SignatureTransferDetails { address to; uint256 requestedAmount; }
-
-    function permitTransferFrom(
-        PermitTransferFrom calldata permit,
-        SignatureTransferDetails calldata transferDetails,
-        address owner,
-        bytes calldata signature
-    ) external;
-}
-
 /// @title TipRouter
-/// @notice Routes USDC tips through Uniswap Permit2 without holding user funds.
+/// @notice Routes USDC tips using a single EIP-2612 permit signature.
 contract TipRouter is Ownable, ReentrancyGuard {
-    address public immutable usdc;
-    ISignatureTransfer public immutable permit2;
-    address public treasuryAddress;
+    using SafeERC20 for IERC20;
 
+    IERC20 public immutable usdc;
+    address public treasuryAddress;
     uint256 public constant PLATFORM_FEE_BPS = 500;
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant MIN_TIP_AMOUNT = 1;
 
-    event TipSent(
-        address indexed sender,
-        address indexed streamer,
-        uint256 totalAmount,
-        uint256 feeAmount,
-        uint256 streamerAmount
-    );
+    event TipSent(address indexed sender, address indexed streamer, uint256 totalAmount, uint256 feeAmount, uint256 streamerAmount);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     error ZeroAddress();
     error AmountTooLow();
     error SelfTip();
+    error PermitFailed();
 
-    constructor(address _usdc, address _permit2, address _treasuryAddress, address _initialOwner)
-        Ownable(_initialOwner)
-    {
-        if (
-            _usdc == address(0) || _permit2 == address(0) || _treasuryAddress == address(0)
-                || _initialOwner == address(0)
-        ) revert ZeroAddress();
-
-        usdc = _usdc;
-        permit2 = ISignatureTransfer(_permit2);
+    constructor(address _usdc, address _treasuryAddress, address _initialOwner) Ownable(_initialOwner) {
+        if (_usdc == address(0) || _treasuryAddress == address(0) || _initialOwner == address(0)) revert ZeroAddress();
+        usdc = IERC20(_usdc);
         treasuryAddress = _treasuryAddress;
     }
 
-    function tip(
-        address _streamer,
-        uint256 _amount,
-        uint256 _feeNonce,
-        uint256 _streamerNonce,
-        uint256 _deadline,
-        bytes calldata _feeSig,
-        bytes calldata _streamerSig
-    ) external nonReentrant {
+    function tip(address _streamer, uint256 _amount, uint256 _deadline, uint256 /* _nonce */, uint8 _v, bytes32 _r, bytes32 _s)
+        external nonReentrant
+    {
         if (_streamer == address(0)) revert ZeroAddress();
         if (_streamer == msg.sender) revert SelfTip();
         if (_amount < MIN_TIP_AMOUNT) revert AmountTooLow();
 
+        try IERC20Permit(address(usdc)).permit(msg.sender, address(this), _amount, _deadline, _v, _r, _s) {} catch {
+            revert PermitFailed();
+        }
+
         uint256 feeAmount = (_amount * PLATFORM_FEE_BPS + BPS_DENOMINATOR - 1) / BPS_DENOMINATOR;
         uint256 streamerAmount = _amount - feeAmount;
-
-        permit2.permitTransferFrom(
-            ISignatureTransfer.PermitTransferFrom({
-                permitted: ISignatureTransfer.TokenPermissions({token: usdc, amount: feeAmount}),
-                nonce: _feeNonce,
-                deadline: _deadline
-            }),
-            ISignatureTransfer.SignatureTransferDetails({to: treasuryAddress, requestedAmount: feeAmount}),
-            msg.sender,
-            _feeSig
-        );
-        permit2.permitTransferFrom(
-            ISignatureTransfer.PermitTransferFrom({
-                permitted: ISignatureTransfer.TokenPermissions({token: usdc, amount: streamerAmount}),
-                nonce: _streamerNonce,
-                deadline: _deadline
-            }),
-            ISignatureTransfer.SignatureTransferDetails({to: _streamer, requestedAmount: streamerAmount}),
-            msg.sender,
-            _streamerSig
-        );
-
+        if (feeAmount > 0) usdc.safeTransferFrom(msg.sender, treasuryAddress, feeAmount);
+        usdc.safeTransferFrom(msg.sender, _streamer, streamerAmount);
         emit TipSent(msg.sender, _streamer, _amount, feeAmount, streamerAmount);
     }
 
