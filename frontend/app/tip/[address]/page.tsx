@@ -11,7 +11,13 @@ import {
   useSignTypedData,
   useChainId,
 } from 'wagmi';
-import { parseUnits, isAddress, parseSignature, type Address } from 'viem';
+import {
+  parseUnits,
+  isAddress,
+  parseSignature,
+  recoverTypedDataAddress,
+  type Address,
+} from 'viem';
 import {
   TIP_ROUTER_ABI,
   TIP_ROUTER_ADDRESS,
@@ -261,6 +267,22 @@ export default function TipPage() {
         },
       });
       const { v, r, s } = parseSignature(signature);
+      const recoveredOwner = await recoverTypedDataAddress({
+        domain: USDC_PERMIT_DOMAIN(USDC_ADDRESS, chainId),
+        types: USDC_PERMIT_TYPES,
+        primaryType: 'Permit',
+        message: {
+          owner: senderAddress!,
+          spender: TIP_ROUTER_ADDRESS,
+          value: parsedAmount,
+          nonce: currentNonce,
+          deadline,
+        },
+        signature,
+      });
+      if (recoveredOwner.toLowerCase() !== senderAddress!.toLowerCase()) {
+        throw new Error('Wallet returned a signature for a different account. Please reconnect the same wallet and try again.');
+      }
       setStep('tipping');
       await writeTip({
         account: senderAddress!,
