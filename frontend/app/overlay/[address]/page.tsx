@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useWatchContractEvent } from 'wagmi';
-import { formatUnits, type Address } from 'viem';
-import { TIP_ROUTER_ABI, TIP_ROUTER_ADDRESS, USDC_DECIMALS } from '@/lib/contracts';
+import { usePublicClient } from 'wagmi';
+import { decodeEventLog, formatUnits, isAddress, parseAbiItem, type Address } from 'viem';
+import { TIP_ROUTER_ADDRESS, USDC_DECIMALS } from '@/lib/contracts';
 import { useBasename } from '@/lib/basename';
 
 interface TipAlert {
@@ -16,6 +16,9 @@ interface TipAlert {
 const DISPLAY_DURATION_MS = 7000;
 const EXIT_ANIMATION_MS = 500;
 const BASE_MAINNET_CHAIN_ID = 8453;
+const TIP_SENT_EVENT = parseAbiItem(
+  'event TipSent(address indexed sender,address indexed streamer,uint256 totalAmount,uint256 feeAmount,uint256 streamerAmount)'
+);
 
 export default function OverlayPage() {
   const params = useParams<{ address: string }>();
@@ -26,32 +29,56 @@ export default function OverlayPage() {
   const [visible, setVisible] = useState(false);
   const { name: senderName } = useBasename(current?.sender ?? undefined);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const publicClient = usePublicClient({ chainId: BASE_MAINNET_CHAIN_ID });
+  const lastBlockRef = useRef<bigint | null>(null);
+  const seenLogsRef = useRef(new Set<string>());
 
-  useWatchContractEvent({
-    chainId: BASE_MAINNET_CHAIN_ID,
-    address: TIP_ROUTER_ADDRESS,
-    abi: TIP_ROUTER_ABI,
-    eventName: 'TipSent',
-    pollingInterval: 3_000,
-    onLogs(logs) {
-      const incoming = logs
-        .filter((log) => log.args.streamer?.toLowerCase() === recipientAddress.toLowerCase())
-        .map((log) => {
-          const { sender, streamerAmount } = log.args as {
-            sender: Address;
-            streamerAmount: bigint;
-          };
-          return {
-            id: `${log.transactionHash}-${log.logIndex}`,
-            sender,
-            amount: formatUnits(streamerAmount, USDC_DECIMALS),
-          };
+  useEffect(() => {
+    if (!publicClient || !isAddress(recipientAddress)) return;
+    let stopped = false;
+    let polling = false;
+
+    const pollLogs = async () => {
+      if (stopped || polling) return;
+      polling = true;
+      try {
+        const latestBlock = await publicClient.getBlockNumber();
+        if (lastBlockRef.current === null) {
+          lastBlockRef.current = latestBlock;
+          return;
+        }
+        if (latestBlock <= lastBlockRef.current) return;
+
+        const logs = await publicClient.getLogs({
+          address: TIP_ROUTER_ADDRESS,
+          event: TIP_SENT_EVENT,
+          args: { streamer: recipientAddress },
+          fromBlock: lastBlockRef.current + 1n,
+          toBlock: latestBlock,
         });
-      if (incoming.length > 0) {
-        setQueue((prev) => [...prev, ...incoming]);
+        lastBlockRef.current = latestBlock;
+
+        const incoming: TipAlert[] = logs.flatMap((log) => {
+          const id = `${log.transactionHash}-${log.logIndex}`;
+          if (seenLogsRef.current.has(id)) return [];
+          seenLogsRef.current.add(id);
+          const decoded = decodeEventLog({ abi: [TIP_SENT_EVENT], data: log.data, topics: log.topics });
+          const args = decoded.args as { sender: Address; streamerAmount: bigint };
+          return [{ id, sender: args.sender, amount: formatUnits(args.streamerAmount, USDC_DECIMALS) }];
+        });
+        if (incoming.length > 0) setQueue((prev) => [...prev, ...incoming]);
+      } finally {
+        polling = false;
       }
-    },
-  });
+    };
+
+    pollLogs();
+    const interval = window.setInterval(pollLogs, 3_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+    };
+  }, [publicClient, recipientAddress]);
 
   useEffect(() => {
     if (current || queue.length === 0) return;
