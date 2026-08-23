@@ -15,6 +15,7 @@ interface TipAlert {
 
 const DISPLAY_DURATION_MS = 7000;
 const EXIT_ANIMATION_MS = 500;
+const BASE_MAINNET_CHAIN_ID = 8453;
 
 export default function OverlayPage() {
   const params = useParams<{ address: string }>();
@@ -27,6 +28,7 @@ export default function OverlayPage() {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useWatchContractEvent({
+    chainId: BASE_MAINNET_CHAIN_ID,
     address: TIP_ROUTER_ADDRESS,
     abi: TIP_ROUTER_ABI,
     eventName: 'TipSent',
