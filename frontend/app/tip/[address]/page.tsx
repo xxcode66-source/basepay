@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import {
@@ -8,6 +8,7 @@ import {
   useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
+  useSignTypedData,
 } from 'wagmi';
 import { parseUnits, isAddress, type Address } from 'viem';
 import {
@@ -16,6 +17,10 @@ import {
   USDC_ADDRESS,
   USDC_DECIMALS,
   ERC20_ABI,
+  PERMIT2_ADDRESS,
+  PERMIT2_ABI,
+  PERMIT2_DOMAIN,
+  PERMIT2_TYPES,
 } from '@/lib/contracts';
 import { DisplayName } from '@/lib/basename';
 import { IconAlert, IconTarget, IconMessage } from '@/lib/ui-icons';
@@ -58,7 +63,7 @@ const QUICK_AMOUNTS = [1, 5, 10, 25];
 const PLATFORM_FEE_BPS = 500;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-type Step = 'idle' | 'approving' | 'tipping' | 'success' | 'error';
+type Step = 'idle' | 'signing' | 'tipping' | 'success' | 'error';
 
 /* ── localStorage helpers ────────────────────────────────── */
 interface StoredMessage {
@@ -102,7 +107,7 @@ function IconCheck() {
 function StepIndicator({ currentStep }: { currentStep: Step }) {
   const steps = [
     { key: 'idle', label: 'Input' },
-    { key: 'approving', label: 'Approve' },
+    { key: 'signing', label: 'Sign' },
     { key: 'tipping', label: 'Send' },
     { key: 'success', label: 'Done' },
   ];
@@ -191,6 +196,7 @@ export default function TipPage() {
   const params = useParams<{ address: string }>();
   const recipientAddress = params.address as Address;
   const { address: senderAddress, isConnected } = useAccount();
+  const { signTypedDataAsync } = useSignTypedData();
 
   const [amount, setAmount] = useState('5');
   const [message, setMessage] = useState('');
@@ -198,12 +204,13 @@ export default function TipPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [goal, setGoalState] = useState(0);
   const [raised, setRaised] = useState(0);
+  const pendingTipRef = useRef(false);
 
   const validRecipient = isAddress(recipientAddress);
   const parsedAmount = amount ? parseUnits(amount, USDC_DECIMALS) : 0n;
 
   // Fee calculation
-  const feeAmount = (parsedAmount * BigInt(PLATFORM_FEE_BPS)) / 10000n;
+  const feeAmount = (parsedAmount * BigInt(PLATFORM_FEE_BPS) + 9999n) / 10000n;
   const recipientReceives = parsedAmount - feeAmount;
 
   // Load goal from localStorage
@@ -222,15 +229,15 @@ export default function TipPage() {
     setRaised(total / 1e6);
   };
 
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+  const { data: permit2Allowance, refetch: refetchPermit2Allowance } = useReadContract({
     address: USDC_ADDRESS,
     abi: ERC20_ABI,
     functionName: 'allowance',
-    args: senderAddress ? [senderAddress, TIP_ROUTER_ADDRESS] : undefined,
+    args: senderAddress ? [senderAddress, PERMIT2_ADDRESS] : undefined,
     query: { enabled: !!senderAddress },
   });
 
-  const { writeContractAsync: writeApprove, data: approveHash } = useWriteContract();
+  const { writeContractAsync: writeApprovePermit2, data: approveHash } = useWriteContract();
   const { writeContractAsync: writeTip, data: tipHash } = useWriteContract();
 
   const { isSuccess: approveConfirmed } = useWaitForTransactionReceipt({
@@ -240,17 +247,38 @@ export default function TipPage() {
     hash: tipHash,
   });
 
-  const needsApproval =
-    allowance === undefined || (allowance as bigint) < parsedAmount;
+  const needsApproval = permit2Allowance === undefined || (permit2Allowance as bigint) < parsedAmount;
 
   const sendTip = async () => {
     try {
+      setStep('signing');
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      const feeNonce = BigInt(`0x${Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('')}`);
+      let streamerNonce = feeNonce;
+      while (streamerNonce === feeNonce) {
+        crypto.getRandomValues(bytes);
+        streamerNonce = BigInt(`0x${Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('')}`);
+      }
+      const deadline = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+      const feeSig = await signTypedDataAsync({
+        types: PERMIT2_TYPES,
+        primaryType: 'PermitTransferFrom',
+        domain: PERMIT2_DOMAIN,
+        message: { permitted: { token: USDC_ADDRESS, amount: feeAmount }, nonce: feeNonce, deadline },
+      });
+      const streamerSig = await signTypedDataAsync({
+        types: PERMIT2_TYPES,
+        primaryType: 'PermitTransferFrom',
+        domain: PERMIT2_DOMAIN,
+        message: { permitted: { token: USDC_ADDRESS, amount: recipientReceives }, nonce: streamerNonce, deadline },
+      });
       setStep('tipping');
       await writeTip({
         address: TIP_ROUTER_ADDRESS,
         abi: TIP_ROUTER_ABI,
         functionName: 'tip',
-        args: [recipientAddress, parsedAmount],
+        args: [recipientAddress, parsedAmount, feeNonce, streamerNonce, deadline, feeSig, streamerSig],
       });
     } catch (err: any) {
       setStep('error');
@@ -260,8 +288,11 @@ export default function TipPage() {
 
   useEffect(() => {
     if (approveConfirmed) {
-      refetchAllowance();
-      sendTip();
+      refetchPermit2Allowance();
+      if (pendingTipRef.current) {
+        pendingTipRef.current = false;
+        sendTip();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approveConfirmed]);
@@ -289,12 +320,13 @@ export default function TipPage() {
 
     try {
       if (needsApproval) {
-        setStep('approving');
-        await writeApprove({
+        setStep('signing');
+        pendingTipRef.current = true;
+        await writeApprovePermit2({
           address: USDC_ADDRESS,
           abi: ERC20_ABI,
           functionName: 'approve',
-          args: [TIP_ROUTER_ADDRESS, parsedAmount],
+          args: [PERMIT2_ADDRESS, BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')],
         });
       } else {
         await sendTip();
@@ -328,7 +360,7 @@ export default function TipPage() {
     );
   }
 
-  const isBusy = step === 'approving' || step === 'tipping';
+  const isBusy = step === 'signing' || step === 'tipping';
   const tipUrl = `${APP_URL}/tip/${recipientAddress}`;
 
   return (
@@ -507,7 +539,7 @@ export default function TipPage() {
                     isBusy ? 'btn-primary' : 'btn-primary btn-shimmer'
                   }`}
                 >
-                  {step === 'approving' ? (
+                  {step === 'signing' ? (
                     <>
                       <IconSpinner />
                       Approving USDC...
