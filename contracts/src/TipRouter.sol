@@ -19,6 +19,7 @@ contract TipRouter is Ownable, ReentrancyGuard {
     uint256 public constant MIN_TIP_AMOUNT = 1;
 
     event TipSent(address indexed sender, address indexed streamer, uint256 totalAmount, uint256 feeAmount, uint256 streamerAmount);
+    event TipAlert(address indexed sender, address indexed streamer, uint256 streamerAmount, string message);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     error ZeroAddress();
@@ -32,7 +33,7 @@ contract TipRouter is Ownable, ReentrancyGuard {
         treasuryAddress = _treasuryAddress;
     }
 
-    function tip(address _streamer, uint256 _amount, uint256 _deadline, uint256 /* _nonce */, uint8 _v, bytes32 _r, bytes32 _s)
+    function tip(address _streamer, uint256 _amount, uint256 _deadline, uint256 /* _nonce */, uint8 _v, bytes32 _r, bytes32 _s, string calldata _message)
         external nonReentrant
     {
         if (_streamer == address(0)) revert ZeroAddress();
@@ -48,6 +49,7 @@ contract TipRouter is Ownable, ReentrancyGuard {
         if (feeAmount > 0) usdc.safeTransferFrom(msg.sender, treasuryAddress, feeAmount);
         usdc.safeTransferFrom(msg.sender, _streamer, streamerAmount);
         emit TipSent(msg.sender, _streamer, _amount, feeAmount, streamerAmount);
+        emit TipAlert(msg.sender, _streamer, streamerAmount, _message);
     }
 
     function setTreasuryAddress(address _newTreasury) external onlyOwner {

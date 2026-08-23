@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { formatUnits, isAddress, keccak256, toHex, type Address } from 'viem';
+import { decodeEventLog, formatUnits, isAddress, keccak256, parseAbiItem, toHex, type Address } from 'viem';
 import { TIP_ROUTER_ADDRESS, USDC_DECIMALS } from '@/lib/contracts';
 import { useBasename } from '@/lib/basename';
 
@@ -10,6 +10,7 @@ interface TipAlert {
   id: string;
   sender: Address;
   amount: string;
+  message: string;
 }
 
 const DISPLAY_DURATION_MS = 7000;
@@ -17,7 +18,10 @@ const EXIT_ANIMATION_MS = 500;
 const BASE_MAINNET_CHAIN_ID = 8453;
 const INITIAL_LOOKBACK_BLOCKS = 20n;
 const BASE_RPC_URL = 'https://mainnet.base.org';
-const TIP_SENT_TOPIC = keccak256(toHex('TipSent(address,address,uint256,uint256,uint256)'));
+const TIP_ALERT_EVENT = parseAbiItem(
+  'event TipAlert(address indexed sender,address indexed streamer,uint256 streamerAmount,string message)'
+);
+const TIP_ALERT_TOPIC = keccak256(toHex('TipAlert(address,address,uint256,string)'));
 
 export default function OverlayPage() {
   const params = useParams<{ address: string }>();
@@ -30,6 +34,17 @@ export default function OverlayPage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const lastBlockRef = useRef<bigint | null>(null);
   const seenLogsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    const previousBodyBackground = document.body.style.background;
+    const previousHtmlBackground = document.documentElement.style.background;
+    document.body.style.background = 'transparent';
+    document.documentElement.style.background = 'transparent';
+    return () => {
+      document.body.style.background = previousBodyBackground;
+      document.documentElement.style.background = previousHtmlBackground;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAddress(recipientAddress)) return;
@@ -66,7 +81,7 @@ export default function OverlayPage() {
               address: TIP_ROUTER_ADDRESS,
               fromBlock: `0x${(lastBlockRef.current + 1n).toString(16)}`,
               toBlock: `0x${latestBlock.toString(16)}`,
-              topics: [TIP_SENT_TOPIC, null, paddedRecipient],
+              topics: [TIP_ALERT_TOPIC, null, paddedRecipient],
             }],
           }),
         });
@@ -78,10 +93,10 @@ export default function OverlayPage() {
           const id = `${log.transactionHash}-${log.logIndex}`;
           if (seenLogsRef.current.has(id)) return [];
           seenLogsRef.current.add(id);
-          const data = log.data.slice(2);
           const sender = `0x${log.topics[1].slice(-40)}` as Address;
-          const streamerAmount = BigInt(`0x${data.slice(128, 192)}`);
-          return [{ id, sender, amount: formatUnits(streamerAmount, USDC_DECIMALS) }];
+          const decoded = decodeEventLog({ abi: [TIP_ALERT_EVENT], data: log.data as `0x${string}`, topics: log.topics as [`0x${string}`, ...`0x${string}`[]] });
+          const args = decoded.args as { streamerAmount: bigint; message: string };
+          return [{ id, sender, amount: formatUnits(args.streamerAmount, USDC_DECIMALS), message: args.message }];
         });
         if (incoming.length > 0) setQueue((prev) => [...prev, ...incoming]);
       } catch (error) {
@@ -151,6 +166,11 @@ export default function OverlayPage() {
               <p className="text-neutral-400 text-sm font-mono">
                 {senderName || `${current.sender.slice(0, 6)}...${current.sender.slice(-4)}`}
               </p>
+              {current.message && (
+                <p className="relative text-neutral-300 text-sm mt-1 max-w-md break-words">
+                  &ldquo;{current.message}&rdquo;
+                </p>
+              )}
             </div>
           </div>
         </div>

@@ -57,7 +57,7 @@ contract TipRouterTest is Test {
     function _tip(uint256 amount) internal {
         uint256 nonce = usdc.nonces(viewer);
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(amount, nonce);
-        vm.prank(viewer); router.tip(streamer, amount, type(uint256).max, nonce, v, r, s);
+        vm.prank(viewer); router.tip(streamer, amount, type(uint256).max, nonce, v, r, s, "Test tip");
     }
 
     function test_TipSplitsCorrectly() public { _tip(FIVE_USDC); assertEq(usdc.balanceOf(treasury), FEE_ON_FIVE); assertEq(usdc.balanceOf(streamer), FIVE_USDC - FEE_ON_FIVE); }
@@ -65,17 +65,17 @@ contract TipRouterTest is Test {
     function test_SmallTipStillPaysFee() public { _tip(5); assertEq(usdc.balanceOf(treasury), 1); assertEq(usdc.balanceOf(streamer), 4); }
     function test_RevertWhen_AmountIsZero() public {
         vm.prank(viewer); vm.expectRevert(TipRouter.AmountTooLow.selector);
-        router.tip(streamer, 0, type(uint256).max, 0, 0, bytes32(0), bytes32(0));
+        router.tip(streamer, 0, type(uint256).max, 0, 0, bytes32(0), bytes32(0), "");
     }
     function test_RevertWhen_SelfTip() public {
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(FIVE_USDC, 0);
         vm.prank(viewer); vm.expectRevert(TipRouter.SelfTip.selector);
-        router.tip(viewer, FIVE_USDC, type(uint256).max, 0, v, r, s);
+        router.tip(viewer, FIVE_USDC, type(uint256).max, 0, v, r, s, "");
     }
     function test_RevertWhen_InvalidSignature() public {
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(999, 0);
         vm.prank(viewer); vm.expectRevert(TipRouter.PermitFailed.selector);
-        router.tip(streamer, FIVE_USDC, type(uint256).max, 0, v, r, s);
+        router.tip(streamer, FIVE_USDC, type(uint256).max, 0, v, r, s, "");
     }
     function test_OnlyOwnerCanUpdateTreasury() public {
         address nextTreasury = makeAddr("nextTreasury");

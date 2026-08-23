@@ -289,7 +289,7 @@ export default function TipPage() {
         address: TIP_ROUTER_ADDRESS,
         abi: TIP_ROUTER_ABI,
         functionName: 'tip',
-        args: [recipientAddress, parsedAmount, deadline, currentNonce, Number(v), r, s],
+        args: [recipientAddress, parsedAmount, deadline, currentNonce, Number(v), r, s, message.trim()],
       });
     } catch (err: any) {
       setStep('error');

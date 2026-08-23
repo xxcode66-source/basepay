@@ -7,12 +7,16 @@ export const TIP_ROUTER_ABI = [{
   inputs: [
     { name: '_streamer', type: 'address' }, { name: '_amount', type: 'uint256' },
     { name: '_deadline', type: 'uint256' }, { name: '_nonce', type: 'uint256' },
-    { name: '_v', type: 'uint8' }, { name: '_r', type: 'bytes32' }, { name: '_s', type: 'bytes32' },
+    { name: '_v', type: 'uint8' }, { name: '_r', type: 'bytes32' }, { name: '_s', type: 'bytes32' }, { name: '_message', type: 'string' },
   ], outputs: [], stateMutability: 'nonpayable',
 }, { type: 'function', name: 'PLATFORM_FEE_BPS', inputs: [], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' }, {
   type: 'event', name: 'TipSent', inputs: [
     { name: 'sender', type: 'address', indexed: true }, { name: 'streamer', type: 'address', indexed: true },
     { name: 'totalAmount', type: 'uint256', indexed: false }, { name: 'feeAmount', type: 'uint256', indexed: false }, { name: 'streamerAmount', type: 'uint256', indexed: false },
+  ],
+}, { type: 'event', name: 'TipAlert', inputs: [
+  { name: 'sender', type: 'address', indexed: true }, { name: 'streamer', type: 'address', indexed: true },
+  { name: 'streamerAmount', type: 'uint256', indexed: false }, { name: 'message', type: 'string', indexed: false },
   ],
 }] as const;
 
