@@ -1,4 +1,4 @@
-const CACHE = 'basepay-v1';
+const CACHE = 'basepay-v2';
 const ASSETS = ['/', '/manifest.json'];
 
 self.addEventListener('install', (event) => {
@@ -18,9 +18,16 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network-first for API / RPC calls; cache-first for static assets.
+  // Always use the latest app shell and Next.js bundles after a deployment.
+  if (event.request.mode === 'navigate' || event.request.url.includes('/_next/')) {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   if (event.request.url.includes('/rpc') || event.request.url.includes('walletconnect')) {
-    return; // Let these go to network directly.
+    return;
   }
 
   event.respondWith(
