@@ -16,6 +16,7 @@ interface TipAlert {
 const DISPLAY_DURATION_MS = 7000;
 const EXIT_ANIMATION_MS = 500;
 const BASE_MAINNET_CHAIN_ID = 8453;
+const INITIAL_LOOKBACK_BLOCKS = 20n;
 const TIP_SENT_EVENT = parseAbiItem(
   'event TipSent(address indexed sender,address indexed streamer,uint256 totalAmount,uint256 feeAmount,uint256 streamerAmount)'
 );
@@ -44,8 +45,9 @@ export default function OverlayPage() {
       try {
         const latestBlock = await publicClient.getBlockNumber();
         if (lastBlockRef.current === null) {
-          lastBlockRef.current = latestBlock;
-          return;
+          lastBlockRef.current = latestBlock > INITIAL_LOOKBACK_BLOCKS
+            ? latestBlock - INITIAL_LOOKBACK_BLOCKS
+            : 0n;
         }
         if (latestBlock <= lastBlockRef.current) return;
 
