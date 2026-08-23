@@ -22,6 +22,10 @@ const nextConfig = {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
           },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self' 'unsafe-inline' data: blob:; connect-src 'self' https://mainnet.base.org https://*.walletconnect.com wss://*.walletconnect.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; media-src 'self' data: blob:; frame-ancestors 'none';",
+          },
         ],
       },
     ];

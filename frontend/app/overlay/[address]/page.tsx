@@ -84,6 +84,8 @@ export default function OverlayPage() {
           return [{ id, sender, amount: formatUnits(streamerAmount, USDC_DECIMALS) }];
         });
         if (incoming.length > 0) setQueue((prev) => [...prev, ...incoming]);
+      } catch (error) {
+        console.error('[BasePay overlay] Failed to poll tip logs:', error);
       } finally {
         polling = false;
       }
@@ -128,7 +130,7 @@ export default function OverlayPage() {
 
       {current && (
         <div
-          className={`transition-all duration-500 ease-out ${
+          className={`relative transition-all duration-500 ease-out ${
             visible
               ? 'opacity-100 translate-y-0 scale-100'
               : 'opacity-0 translate-y-6 scale-95'
