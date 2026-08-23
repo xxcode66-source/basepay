@@ -1,5 +1,9 @@
 # BasePay — Smart Contract
 
+`TipRouter` uses USDC EIP-2612 permits. The sender signs one typed-data message
+off-chain; the router calls `permit()` and routes the fee and streamer amount in
+one transaction. No separate USDC `approve()` transaction is required.
+
 ## Setup (Foundry)
 
 ```bash
@@ -50,18 +54,34 @@ Untuk testnet dulu (rekomendasi sebelum submit hackathon), pakai
 `https://sepolia.base.org` dan alamat USDC Sepolia di atas — bisa dapat
 testnet USDC dari [Circle Faucet](https://faucet.circle.com).
 
+## Contract API
+
+The constructor is:
+
+```solidity
+TipRouter(address usdc, address treasuryAddress, address initialOwner)
+```
+
+The tip call is:
+
+```solidity
+tip(address streamer, uint256 amount, uint256 deadline, uint256 nonce,
+  uint8 v, bytes32 r, bytes32 s)
+```
+
+The contract emits both `TipSent` and `TipAlert`. `TipAlert` includes the
+optional message used by the OBS overlay.
+
 ## Catatan keamanan
 
-- Kontrak **non-custodial**: dana lewat via dua `transferFrom` langsung dari
-  pengirim ke `treasury` dan ke `streamer`, tidak pernah singgah di saldo
-  kontrak — sehingga tidak ada risiko "stuck funds" atau target eksploitasi
-  saldo besar di kontrak.
+- Kontrak **non-custodial**: `USDC.permit()` memberi allowance sementara ke
+  router, lalu dana lewat via dua `transferFrom` langsung dari pengirim ke
+  `treasury` dan `streamer`.
 - `nonReentrant` tetap dipasang di `tip()` sebagai defense-in-depth.
 - Fee (`PLATFORM_FEE_BPS = 500` → 5%) bersifat `constant` (bukan `mutable`)
   sehingga tidak bisa diubah owner secara diam-diam — hanya alamat treasury
   yang bisa diganti.
-- Gunakan `SafeERC20` untuk kompatibilitas dengan token yang tidak
-  mengembalikan `bool` secara standar.
+- Gunakan `SafeERC20` untuk kompatibilitas transfer token.
 
 ## Deploy via Multisig (Recommended)
 
