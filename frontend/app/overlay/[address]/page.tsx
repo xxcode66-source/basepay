@@ -140,7 +140,7 @@ export default function OverlayPage() {
   }, [current]);
 
   return (
-    <div className="min-h-screen w-screen flex items-end justify-center bg-transparent pb-16 overflow-hidden">
+    <div className="fixed inset-0 w-screen h-screen flex items-center justify-center bg-transparent overflow-hidden">
       <audio ref={audioRef} src="/alert.mp3" preload="auto" />
 
       {current && (
@@ -154,7 +154,7 @@ export default function OverlayPage() {
           {/* Glow effect behind card */}
           <div className="absolute inset-0 rounded-2xl bg-blue-500/20 blur-xl animate-pulse-ring" />
           
-          <div className="relative bg-neutral-900/95 border-2 border-blue-500 rounded-2xl px-8 py-5 shadow-2xl shadow-blue-500/40 flex items-center gap-4">
+          <div className="relative w-[min(90vw,32rem)] bg-neutral-900/95 border-2 border-blue-500 rounded-2xl px-8 py-5 shadow-2xl shadow-blue-500/40 flex items-center gap-4">
             {/* Animated gradient border overlay */}
             <div className="absolute inset-0 rounded-2xl opacity-30 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-500 bg-[length:200%_100%] animate-[btn-shimmer_3s_linear_infinite] mix-blend-overlay" />
             
