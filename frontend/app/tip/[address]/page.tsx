@@ -8,7 +8,7 @@ import {
   useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
-  useSignTypedData,
+  useWalletClient,
   useChainId,
 } from 'wagmi';
 import {
@@ -202,7 +202,7 @@ export default function TipPage() {
   const params = useParams<{ address: string }>();
   const recipientAddress = params.address as Address;
   const { address: senderAddress, isConnected } = useAccount();
-  const { signTypedDataAsync } = useSignTypedData();
+  const { data: walletClient } = useWalletClient({ chainId: BASE_MAINNET_CHAIN_ID });
 
   const [amount, setAmount] = useState('5');
   const [message, setMessage] = useState('');
@@ -253,31 +253,30 @@ export default function TipPage() {
     try {
       setStep('signing');
       const deadline = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
-      const signature = await signTypedDataAsync({
+      if (!walletClient || !senderAddress) {
+        throw new Error('Wallet is not ready. Please reconnect your wallet and try again.');
+      }
+      const permitDomain = USDC_PERMIT_DOMAIN(USDC_ADDRESS, BASE_MAINNET_CHAIN_ID);
+      const permitMessage = {
+        owner: senderAddress,
+        spender: TIP_ROUTER_ADDRESS,
+        value: parsedAmount,
+        nonce: currentNonce,
+        deadline,
+      };
+      const signature = await walletClient.signTypedData({
         account: senderAddress!,
         types: USDC_PERMIT_TYPES,
         primaryType: 'Permit',
-        domain: USDC_PERMIT_DOMAIN(USDC_ADDRESS, chainId),
-        message: {
-          owner: senderAddress!,
-          spender: TIP_ROUTER_ADDRESS,
-          value: parsedAmount,
-          nonce: currentNonce,
-          deadline,
-        },
+        domain: permitDomain,
+        message: permitMessage,
       });
       const { v, r, s } = parseSignature(signature);
       const recoveredOwner = await recoverTypedDataAddress({
-        domain: USDC_PERMIT_DOMAIN(USDC_ADDRESS, chainId),
+        domain: permitDomain,
         types: USDC_PERMIT_TYPES,
         primaryType: 'Permit',
-        message: {
-          owner: senderAddress!,
-          spender: TIP_ROUTER_ADDRESS,
-          value: parsedAmount,
-          nonce: currentNonce,
-          deadline,
-        },
+        message: permitMessage,
         signature,
       });
       if (recoveredOwner.toLowerCase() !== senderAddress!.toLowerCase()) {
