@@ -160,14 +160,14 @@ export default function OverlayPage() {
             
             <div className="relative text-4xl animate-success-bounce">🎉</div>
             <div className="relative">
-              <p className="text-blue-400 font-bold text-lg leading-tight">
+              <p className="text-blue-400 font-bold text-2xl leading-tight">
                 New Tip: ${current.amount} USDC!
               </p>
-              <p className="text-neutral-400 text-sm font-mono">
+              <p className="text-neutral-400 text-lg font-mono">
                 {senderName || `${current.sender.slice(0, 6)}...${current.sender.slice(-4)}`}
               </p>
               {current.message && (
-                <p className="relative text-neutral-300 text-sm mt-1 max-w-md break-words">
+                <p className="relative text-neutral-300 text-lg mt-1 max-w-md break-words">
                   &ldquo;{current.message}&rdquo;
                 </p>
               )}
