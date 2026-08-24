@@ -24,6 +24,9 @@ export const metadata: Metadata = {
   },
   description:
     'Generate a personal tip jar link or QR code. Anyone can send you USDC instantly on the Base network — one scan, one tap, done.',
+  other: {
+    'base:app_id': '6a8c5e7d39d7d26f4bad1ab2',
+  },
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   manifest: '/manifest.json',
   appleWebApp: {
