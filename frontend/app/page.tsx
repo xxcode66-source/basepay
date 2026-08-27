@@ -7,6 +7,19 @@ import { IconCheck, IconCopy, IconDownload, IconArrowRight } from '@/lib/ui-icon
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+function drawRoundedRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  context.beginPath();
+  context.roundRect(x, y, width, height, radius);
+  context.fill();
+}
+
 /* ── Icons (inline SVG, zero deps) ───────────────────────── */
 function IconQr() {
   return (
@@ -53,9 +66,42 @@ export default function GeneratorPage() {
   const handleDownload = () => {
     const canvas = qrRef.current?.querySelector('canvas');
     if (!canvas) return;
+
+    const scale = 2;
+    const frameWidth = 256;
+    const frameHeight = 296;
+    const frameCanvas = document.createElement('canvas');
+    frameCanvas.width = frameWidth * scale;
+    frameCanvas.height = frameHeight * scale;
+    const context = frameCanvas.getContext('2d');
+    if (!context) return;
+    context.scale(scale, scale);
+
+    context.fillStyle = '#1d4ed8';
+    drawRoundedRect(context, 0, 0, frameWidth, frameHeight, 22);
+
+    context.fillStyle = '#ffffff';
+    context.font = '900 14px sans-serif';
+    context.textAlign = 'center';
+    context.letterSpacing = '2px';
+    context.fillText('BASE - USDC', frameWidth / 2, 27);
+
+    context.fillStyle = '#ffffff';
+    drawRoundedRect(context, 13, 42, 230, 230, 16);
+    context.drawImage(canvas, 28, 57, 200, 200);
+
+    context.strokeStyle = '#1d4ed8';
+    context.lineWidth = 2;
+    context.strokeRect(28, 57, 200, 200);
+
+    context.fillStyle = '#ffffff';
+    context.font = '900 14px sans-serif';
+    context.letterSpacing = '2px';
+    context.fillText('SCAN ME', frameWidth / 2, 286);
+
     const link = document.createElement('a');
     link.download = `basepay-qr-${address.slice(2, 8)}.png`;
-    link.href = canvas.toDataURL('image/png');
+    link.href = frameCanvas.toDataURL('image/png');
     link.click();
   };
 
