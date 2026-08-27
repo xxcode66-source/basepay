@@ -170,14 +170,25 @@ export default function GeneratorPage() {
 
                 <div
                   ref={qrRef}
-                  className="bg-white p-3 rounded-2xl border-2 border-blue-500 shadow-lg shadow-black/20"
+                  className="bg-blue-700 p-5 rounded-[1.75rem] shadow-xl shadow-blue-950/30"
                 >
-                  <div className="border border-blue-100 rounded-xl p-3">
+                  <p className="text-center text-sm font-black tracking-[0.18em] text-white mb-5">
+                    BASE NETWORK <span className="text-blue-200">•</span> USDC
+                  </p>
+                  <div className="relative bg-white p-3 rounded-2xl">
+                    <div className="pointer-events-none absolute inset-2 rounded-xl border-2 border-blue-700/90" />
+                    <div className="pointer-events-none absolute -top-0.5 -left-0.5 w-5 h-5 bg-white border-r-2 border-b-2 border-blue-700 rounded-br-lg" />
+                    <div className="pointer-events-none absolute -top-0.5 -right-0.5 w-5 h-5 bg-white border-l-2 border-b-2 border-blue-700 rounded-bl-lg" />
+                    <div className="pointer-events-none absolute -bottom-0.5 -left-0.5 w-5 h-5 bg-white border-r-2 border-t-2 border-blue-700 rounded-tr-lg" />
+                    <div className="pointer-events-none absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-white border-l-2 border-t-2 border-blue-700 rounded-tl-lg" />
                     <QRCodeCanvas value={tipUrl} size={200} level="H" />
-                    <p className="text-center text-sm font-bold tracking-[0.2em] text-blue-600 mt-3">
-                      BASE - USDC
-                    </p>
                   </div>
+                  <p className="text-center text-sm font-black tracking-[0.16em] text-white mt-5">
+                    SCAN ME
+                  </p>
+                  <p className="text-center text-[10px] font-medium tracking-[0.12em] text-blue-200 mt-1">
+                    FAST. SIMPLE. ON BASE.
+                  </p>
                 </div>
 
                 {/* URL with copy */}
