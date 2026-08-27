@@ -170,9 +170,14 @@ export default function GeneratorPage() {
 
                 <div
                   ref={qrRef}
-                  className="bg-white p-4 rounded-xl shadow-lg shadow-black/20"
+                  className="bg-white p-3 rounded-2xl border-2 border-blue-500 shadow-lg shadow-black/20"
                 >
-                  <QRCodeCanvas value={tipUrl} size={200} level="H" />
+                  <div className="border border-blue-100 rounded-xl p-3">
+                    <QRCodeCanvas value={tipUrl} size={200} level="H" />
+                    <p className="text-center text-sm font-bold tracking-[0.2em] text-blue-600 mt-3">
+                      BASE - USDC
+                    </p>
+                  </div>
                 </div>
 
                 {/* URL with copy */}
