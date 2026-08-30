@@ -19,11 +19,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'BasePay — Send USDC Tips to Anyone, Anywhere',
+    default: 'BasePay — Tip with NIM, USDC, or USDT',
     template: '%s | BasePay',
   },
   description:
-    'Generate a personal tip jar link or QR code. Anyone can send you USDC instantly on the Base network — one scan, one tap, done.',
+    'Send tips instantly with NIM, USDC, or USDT on Base. Works in Nimiq Pay and any web browser — one scan, one tap, done.',
   other: {
     'base:app_id': '6a8c5e7d39d7d26f4bad1ab2',
   },
@@ -35,16 +35,16 @@ export const metadata: Metadata = {
     title: 'BasePay',
   },
   openGraph: {
-    title: 'BasePay — Send USDC Tips to Anyone, Anywhere',
+    title: 'BasePay — Tip with NIM, USDC, or USDT',
     description:
-      'Generate a personal tip jar. Send USDC instantly on Base — no sign-up, no middleman.',
+      'Send tips instantly with multiple tokens on Base. No sign-up, no middleman.',
     type: 'website',
     locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BasePay — Send USDC Tips to Anyone',
-    description: 'One scan, one tap. Send USDC tips instantly on Base.',
+    title: 'BasePay — Instant Tips',
+    description: 'Send tips with NIM, USDC, or USDT on Base. One scan, one tap.',
   },
 };
 

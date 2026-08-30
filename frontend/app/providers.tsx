@@ -7,6 +7,12 @@ import { WagmiProvider } from 'wagmi';
 import { useState, useEffect, type ReactNode } from 'react';
 import { config } from '@/lib/wagmi';
 
+// Note: When running inside Nimiq Pay, the injected window.ethereum provider
+// is used directly for wallet connections. RainbowKit serves as fallback for
+// regular browsers. Nimiq Pay detection happens at the page/component level
+// via isNimiqPay() from lib/nimiq.ts. This Wagmi provider is always active
+// for contract reads (TipHistory, basenames, etc.).
+
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 

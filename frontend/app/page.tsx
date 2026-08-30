@@ -4,8 +4,10 @@ import { useMemo, useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { isAddress } from 'viem';
 import { IconCheck, IconCopy, IconDownload, IconArrowRight } from '@/lib/ui-icons';
+import { isNimiqPay } from '@/lib/nimiq';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const IN_NIMIQ_PAY = typeof window !== 'undefined' && isNimiqPay();
 
 function drawRoundedRect(
   context: CanvasRenderingContext2D,
@@ -130,13 +132,13 @@ export default function GeneratorPage() {
             <span className="text-sm font-semibold tracking-tight">BasePay</span>
           </div>
           <a
-            href="https://base.org"
+            href={IN_NIMIQ_PAY ? "https://nimiq.com" : "https://base.org"}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors flex items-center gap-1.5"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-            Built on Base
+            {IN_NIMIQ_PAY ? 'Nimiq Pay Mini App' : 'Built on Base'}
           </a>
         </nav>
 
@@ -145,15 +147,17 @@ export default function GeneratorPage() {
           <div className="text-center max-w-lg mx-auto mb-12 animate-fade-in-up">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium mb-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-              USDC on Base Network
+              {IN_NIMIQ_PAY ? 'Powered by Nimiq Pay & Base' : 'USDC on Base Network'}
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gradient leading-tight mb-4">
               The fastest way to<br />
               <span className="text-gradient-blue">send a tip.</span>
             </h1>
             <p className="text-neutral-400 text-base leading-relaxed max-w-md mx-auto">
-              Generate a personal tip jar link. Anyone can send you USDC instantly
-              — just one scan, one tap, done.
+              {IN_NIMIQ_PAY 
+                ? 'Send tips with NIM, USDC, or USDT instantly — just one scan, one tap, done.'
+                : 'Generate a personal tip jar link. Anyone can send you USDC instantly — just one scan, one tap, done.'
+              }
             </p>
           </div>
 

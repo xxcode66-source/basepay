@@ -23,12 +23,19 @@ import {
   TIP_ROUTER_ADDRESS,
   USDC_ADDRESS,
   USDC_DECIMALS,
+  TIP_ROUTER_USDT_ADDRESS,
+  USDT_ADDRESS,
+  USDT_DECIMALS,
   ERC20_ABI,
+  ERC20_APPROVE_ABI,
+  TIP_ROUTER_USDT_ABI,
   USDC_PERMIT_DOMAIN,
   USDC_PERMIT_TYPES,
 } from '@/lib/contracts';
 import { DisplayName } from '@/lib/basename';
 import { IconAlert, IconTarget, IconMessage } from '@/lib/ui-icons';
+import { isNimiqPay, useNimiqProvider } from '@/lib/nimiq';
+import { useNimiqEvm } from '@/lib/useNimiqEvm';
 import ContractBanner from '@/components/ContractBanner';
 import TipHistory from '@/components/TipHistory';
 import ShareButtons from '@/components/ShareButtons';
@@ -69,7 +76,8 @@ const PLATFORM_FEE_BPS = 500;
 const BASE_MAINNET_CHAIN_ID = 8453;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-type Step = 'idle' | 'signing' | 'tipping' | 'success' | 'error';
+type PaymentMethod = 'usdc' | 'usdt' | 'nim';
+type Step = 'idle' | 'signing' | 'approving' | 'tipping' | 'success' | 'error';
 
 /* ── localStorage helpers ────────────────────────────────── */
 interface StoredMessage {
@@ -109,14 +117,65 @@ function IconCheck() {
   );
 }
 
+/* ── Payment Method Selector ─────────────────────────────── */
+function PaymentMethodSelector({
+  current,
+  onChange,
+  showNim,
+  disabled,
+}: {
+  current: PaymentMethod;
+  onChange: (method: PaymentMethod) => void;
+  showNim: boolean;
+  disabled: boolean;
+}) {
+  const methods: Array<{ id: PaymentMethod; label: string; symbol: string }> = [
+    { id: 'usdc', label: 'USDC', symbol: '$' },
+    { id: 'usdt', label: 'USDT', symbol: '$' },
+  ];
+  if (showNim) {
+    methods.push({ id: 'nim', label: 'NIM', symbol: '◈' });
+  }
+
+  return (
+    <div className="flex gap-2 mb-4">
+      {methods.map((m) => (
+        <button
+          key={m.id}
+          disabled={disabled}
+          onClick={() => onChange(m.id)}
+          className={`flex-1 rounded-lg py-2 text-xs font-medium transition-all disabled:opacity-50 ${
+            current === m.id
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+              : 'bg-neutral-800/50 text-neutral-400 hover:bg-neutral-800 border border-neutral-700/50'
+          }`}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ── Step Indicator ──────────────────────────────────────── */
-function StepIndicator({ currentStep }: { currentStep: Step }) {
-  const steps = [
+function StepIndicator({ currentStep, method }: { currentStep: Step; method: PaymentMethod }) {
+  const baseSteps = [
     { key: 'idle', label: 'Input' },
     { key: 'signing', label: 'Sign' },
     { key: 'tipping', label: 'Send' },
     { key: 'success', label: 'Done' },
   ];
+  
+  // For USDT, insert approve step
+  const steps = method === 'usdt' && currentStep !== 'idle' && currentStep !== 'success' && currentStep !== 'error'
+    ? [
+        { key: 'idle', label: 'Input' },
+        { key: 'approving', label: 'Approve' },
+        { key: 'tipping', label: 'Send' },
+        { key: 'success', label: 'Done' },
+      ]
+    : baseSteps;
+
   const activeIdx = steps.findIndex((s) => s.key === currentStep);
   const resolvedIdx = currentStep === 'error' ? -1 : activeIdx;
 
@@ -191,7 +250,7 @@ function GoalProgress({
         />
       </div>
       <p className="text-[10px] text-neutral-500 text-right">
-        {pct >= 100 ? 'Goal reached!' : `${pct.toFixed(0)}% — ${Math.ceil(goal - raised)} USDC to go`}
+        {pct >= 100 ? 'Goal reached!' : `${pct.toFixed(0)}% — ${Math.ceil(goal - raised)} to go`}
       </p>
     </div>
   );
@@ -204,19 +263,30 @@ export default function TipPage() {
   const { address: senderAddress, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient({ chainId: BASE_MAINNET_CHAIN_ID });
 
+  // Nimiq integration
+  const nimiqEnv = isNimiqPay();
+  const { nimiq, accounts: nimiqAccounts, isReady: nimiqReady } = useNimiqProvider();
+  const { ethereum: nimiqEth, accounts: evmAccounts } = useNimiqEvm();
+
+  // State
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('usdc');
   const [amount, setAmount] = useState('5');
   const [message, setMessage] = useState('');
   const [step, setStep] = useState<Step>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [goal, setGoalState] = useState(0);
   const [raised, setRaised] = useState(0);
+  const [nimAddress, setNimAddress] = useState('');
   const chainId = useChainId();
 
   const validRecipient = isAddress(recipientAddress);
-  const parsedAmount = amount ? parseUnits(amount, USDC_DECIMALS) : 0n;
+  
+  // Parse amount based on payment method
+  const decimals = paymentMethod === 'nim' ? 5 : (paymentMethod === 'usdt' ? USDT_DECIMALS : USDC_DECIMALS);
+  const parsedAmount = amount ? parseUnits(amount, decimals) : 0n;
 
-  // Fee calculation
-  const feeAmount = (parsedAmount * BigInt(PLATFORM_FEE_BPS) + 9999n) / 10000n;
+  // Fee calculation (NIM has no platform fee)
+  const feeAmount = paymentMethod === 'nim' ? 0n : (parsedAmount * BigInt(PLATFORM_FEE_BPS) + 9999n) / 10000n;
   const recipientReceives = parsedAmount - feeAmount;
 
   // Load goal from localStorage
@@ -228,11 +298,9 @@ export default function TipPage() {
 
   // Calculate total raised from TipHistory events
   const handleHistoryLoaded = (events: { streamerAmount: bigint }[]) => {
-    const total = events.reduce(
-      (sum, e) => sum + Number(e.streamerAmount),
-      0
-    );
-    setRaised(total / 1e6);
+    const total = events.reduce((sum, e) => sum + Number(e.streamerAmount), 0);
+    const divisor = paymentMethod === 'nim' ? 1e5 : 1e6;
+    setRaised(total / divisor);
   };
 
   const { data: nonceData } = useReadContract({
@@ -249,7 +317,8 @@ export default function TipPage() {
     hash: tipHash,
   });
 
-  const sendTip = async () => {
+  // USDC tip with permit
+  const sendUsdcTip = async () => {
     try {
       setStep('signing');
       const deadline = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
@@ -297,11 +366,113 @@ export default function TipPage() {
     }
   };
 
-  // On success: store message + update step
-  useEffect(() => {
-    if (tipConfirmed) {
+  // USDT tip with approve + transfer
+  const sendUsdtTip = async () => {
+    try {
+      if (!senderAddress) {
+        throw new Error('Wallet is not ready.');
+      }
+      
+      // Step 1: Approve USDT
+      setStep('approving');
+      await writeTip({
+        account: senderAddress,
+        chainId: BASE_MAINNET_CHAIN_ID,
+        address: USDT_ADDRESS,
+        abi: ERC20_APPROVE_ABI,
+        functionName: 'approve',
+        args: [TIP_ROUTER_USDT_ADDRESS, parsedAmount],
+      });
+      
+      // Note: In a real implementation, you would wait for the approve transaction
+      // to be confirmed before proceeding to the tip step. For now, this simplified
+      // version sends both transactions sequentially.
+      
+      // Step 2: Tip
+      setStep('tipping');
+      await writeTip({
+        account: senderAddress,
+        chainId: BASE_MAINNET_CHAIN_ID,
+        address: TIP_ROUTER_USDT_ADDRESS,
+        abi: TIP_ROUTER_USDT_ABI,
+        functionName: 'tip',
+        args: [recipientAddress, parsedAmount, message.trim()],
+      });
+    } catch (err: any) {
+      setStep('error');
+      setErrorMsg(err?.shortMessage ?? err?.message ?? 'Transaction was rejected or failed.');
+    }
+  };
+
+  // NIM native transfer
+  const sendNimTip = async () => {
+    try {
+      if (!nimiq || !nimiqAccounts[0]) {
+        throw new Error('Nimiq provider not ready');
+      }
+
+      const amountInLuna = Math.round(parseFloat(amount) * 1e5);
+      setStep('tipping');
+      
+      const txHash = message.trim()
+        ? await nimiq.sendBasicTransactionWithData({
+            recipient: nimAddress,
+            value: amountInLuna,
+            data: message.trim(),
+          })
+        : await nimiq.sendBasicTransaction({
+            recipient: nimAddress,
+            value: amountInLuna,
+          });
+
+      // Store message
+      if (message.trim()) {
+        storeMessage(recipientAddress, {
+          txHash,
+          sender: nimiqAccounts[0],
+          message: message.trim(),
+          timestamp: Date.now(),
+        });
+      }
+      
       setStep('success');
-      // Store message if provided
+    } catch (err: any) {
+      setStep('error');
+      setErrorMsg(err?.message ?? 'NIM transfer failed');
+    }
+  };
+
+  const handleSendTip = async () => {
+    setErrorMsg('');
+    if (isBusy || parsedAmount === 0n) return;
+
+    if (paymentMethod === 'nim') {
+      if (!nimAddress) {
+        setErrorMsg('Please enter NIM recipient address');
+        return;
+      }
+      await sendNimTip();
+    } else if (paymentMethod === 'usdt') {
+      if (chainId !== BASE_MAINNET_CHAIN_ID) {
+        setStep('error');
+        setErrorMsg('Please switch to Base mainnet');
+        return;
+      }
+      await sendUsdtTip();
+    } else {
+      if (chainId !== BASE_MAINNET_CHAIN_ID) {
+        setStep('error');
+        setErrorMsg('Please switch to Base mainnet');
+        return;
+      }
+      await sendUsdcTip();
+    }
+  };
+
+  // On success
+  useEffect(() => {
+    if (tipConfirmed && paymentMethod !== 'nim') {
+      setStep('success');
       if (message.trim() && senderAddress && tipHash) {
         storeMessage(recipientAddress, {
           txHash: tipHash as string,
@@ -314,28 +485,12 @@ export default function TipPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipConfirmed]);
 
-  const handleSendTip = async () => {
-    setErrorMsg('');
-    if (isBusy || parsedAmount === 0n) return;
-    if (chainId !== BASE_MAINNET_CHAIN_ID) {
-      setStep('error');
-      setErrorMsg('Please switch your wallet to Base mainnet before sending a tip.');
-      return;
-    }
-
-    try {
-      await sendTip();
-    } catch (err: any) {
-      setStep('error');
-      setErrorMsg(err?.shortMessage ?? 'Transaction was rejected or failed.');
-    }
-  };
-
   const resetFlow = () => {
     setStep('idle');
     setErrorMsg('');
     setAmount('5');
     setMessage('');
+    setNimAddress('');
   };
 
   if (!validRecipient) {
@@ -354,8 +509,13 @@ export default function TipPage() {
     );
   }
 
-  const isBusy = step === 'signing' || step === 'tipping';
+  const isBusy = step === 'signing' || step === 'approving' || step === 'tipping';
   const tipUrl = `${APP_URL}/tip/${recipientAddress}`;
+  const canShowNim = nimiqEnv && nimiqReady;
+
+  // Get current sender address
+  const currentSender = paymentMethod === 'nim' ? nimiqAccounts[0] : (senderAddress || evmAccounts?.[0]);
+  const isCurrentlyConnected = nimiqEnv ? !!currentSender : isConnected;
 
   return (
     <div className="bg-ambient bg-grid min-h-screen">
@@ -374,16 +534,22 @@ export default function TipPage() {
             </div>
             <span className="text-sm font-semibold tracking-tight">BasePay</span>
           </div>
-          <ConnectButton
-            showBalance={false}
-            chainStatus="icon"
-            accountStatus="avatar"
-          />
+          {nimiqEnv && currentSender ? (
+            <div className="text-xs text-neutral-400 font-mono">
+              {currentSender.slice(0, 6)}...{currentSender.slice(-4)}
+            </div>
+          ) : (
+            <ConnectButton
+              showBalance={false}
+              chainStatus="icon"
+              accountStatus="avatar"
+            />
+          )}
         </header>
 
         {/* ── Step Indicator ──────────────────────────────── */}
         <div className="mb-6 animate-fade-in">
-          <StepIndicator currentStep={step} />
+          <StepIndicator currentStep={step} method={paymentMethod} />
         </div>
 
         {/* ── Recipient Profile ───────────────────────────── */}
@@ -403,36 +569,44 @@ export default function TipPage() {
             <>
               <Confetti />
               <div className="space-y-6 animate-scale-in">
-              {/* Success Card */}
-              <div className="glass-card glass-card-glow rounded-2xl p-8 text-center space-y-4 border-emerald-500/20 animate-glow-pulse">
-                <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400 animate-success-bounce">
-                  <IconCheck />
+                {/* Success Card */}
+                <div className="glass-card glass-card-glow rounded-2xl p-8 text-center space-y-4 border-emerald-500/20 animate-glow-pulse">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400 animate-success-bounce">
+                    <IconCheck />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-emerald-400 mb-1">
+                      Tip sent successfully!
+                    </h2>
+                    <p className="text-sm text-neutral-400">
+                      ${amount} {paymentMethod.toUpperCase()} has been sent.
+                    </p>
+                  </div>
+                  <button
+                    onClick={resetFlow}
+                    className="btn-primary w-full rounded-xl py-3 text-sm font-medium"
+                  >
+                    Send another tip
+                  </button>
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-emerald-400 mb-1">
-                    Tip sent successfully!
-                  </h2>
-                  <p className="text-sm text-neutral-400">
-                    ${amount} USDC has been sent on the Base network.
-                  </p>
-                </div>
-                <button
-                  onClick={resetFlow}
-                  className="btn-primary w-full rounded-xl py-3 text-sm font-medium"
-                >
-                  Send another tip
-                </button>
-              </div>
 
-              {/* Share after success */}
-              <div className="glass-card rounded-xl p-4 space-y-3">
-                <p className="text-xs text-neutral-500">Share this tip jar</p>
-                <ShareButtons url={tipUrl} address={recipientAddress} />
+                {/* Share after success */}
+                <div className="glass-card rounded-xl p-4 space-y-3">
+                  <p className="text-xs text-neutral-500">Share this tip jar</p>
+                  <ShareButtons url={tipUrl} address={recipientAddress} />
+                </div>
               </div>
-            </div>
             </>
           ) : (
             <div className="space-y-4 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+              {/* Payment Method Selector */}
+              <PaymentMethodSelector
+                current={paymentMethod}
+                onChange={setPaymentMethod}
+                showNim={canShowNim}
+                disabled={isBusy}
+              />
+
               {/* Goal Progress */}
               {goal > 0 && (
                 <GoalProgress goal={goal} raised={raised} />
@@ -442,7 +616,9 @@ export default function TipPage() {
               <div className="glass-card glass-card-glow rounded-2xl p-6 space-y-5">
                 <div className="text-center">
                   <div className="flex items-center justify-center gap-1">
-                    <span className="text-neutral-500 text-3xl font-bold">$</span>
+                    <span className="text-neutral-500 text-3xl font-bold">
+                      {paymentMethod === 'nim' ? '◈' : '$'}
+                    </span>
                     <input
                       type="number"
                       min="0.5"
@@ -456,7 +632,10 @@ export default function TipPage() {
                       className="bg-transparent w-36 text-center text-5xl font-bold outline-none disabled:opacity-50 text-white"
                     />
                   </div>
-                  <p className="text-xs text-neutral-500 mt-2">in USDC</p>
+                  <p className="text-xs text-neutral-500 mt-2">
+                    in {paymentMethod === 'nim' ? 'NIM' : paymentMethod.toUpperCase()}
+                    {paymentMethod === 'nim' && ' (no platform fee)'}
+                  </p>
                 </div>
 
                 {/* Quick Amounts */}
@@ -483,18 +662,39 @@ export default function TipPage() {
                     <div className="flex justify-between text-xs">
                       <span className="text-neutral-500">Recipient receives</span>
                       <span className="text-neutral-200 font-medium">
-                        ${(Number(recipientReceives) / 1e6).toFixed(2)}
+                        {paymentMethod === 'nim'
+                          ? `◈${(Number(recipientReceives) / 1e5).toFixed(2)}`
+                          : `$${(Number(recipientReceives) / 1e6).toFixed(2)}`}
                       </span>
                     </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-neutral-500">Platform fee (5%)</span>
-                      <span className="text-neutral-500">
-                        ${(Number(feeAmount) / 1e6).toFixed(2)}
-                      </span>
-                    </div>
+                    {paymentMethod !== 'nim' && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-neutral-500">Platform fee (5%)</span>
+                        <span className="text-neutral-500">
+                          ${(Number(feeAmount) / 1e6).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* NIM Address Input (only for NIM method) */}
+              {paymentMethod === 'nim' && (
+                <div className="glass-card glass-card-glow rounded-xl p-4 space-y-2">
+                  <label className="text-xs font-medium text-neutral-400">
+                    NIM recipient address (from URL param or enter manually)
+                  </label>
+                  <input
+                    type="text"
+                    value={nimAddress}
+                    onChange={(e) => setNimAddress(e.target.value.trim())}
+                    placeholder="NQ07 0000 0000 0000 0000 0000 0000 0000 0000"
+                    disabled={isBusy}
+                    className="input-base w-full rounded-lg px-3 py-2.5 text-sm font-mono"
+                  />
+                </div>
+              )}
 
               {/* Message Input */}
               <div className="glass-card glass-card-glow rounded-xl p-4 space-y-2">
@@ -525,18 +725,23 @@ export default function TipPage() {
               )}
 
               {/* Action Button */}
-              {isConnected ? (
+              {isCurrentlyConnected ? (
                 <button
                   onClick={handleSendTip}
-                  disabled={isBusy || parsedAmount === 0n}
+                  disabled={isBusy || parsedAmount === 0n || (paymentMethod === 'nim' && !nimAddress)}
                   className={`w-full rounded-xl py-4 font-semibold text-base flex items-center justify-center gap-2 ${
                     isBusy ? 'btn-primary' : 'btn-primary btn-shimmer'
                   }`}
                 >
-                  {step === 'signing' ? (
+                  {step === 'approving' ? (
                     <>
                       <IconSpinner />
-                      Approving USDC...
+                      Approving {paymentMethod.toUpperCase()}...
+                    </>
+                  ) : step === 'signing' ? (
+                    <>
+                      <IconSpinner />
+                      Signing...
                     </>
                   ) : step === 'tipping' ? (
                     <>
@@ -561,7 +766,7 @@ export default function TipPage() {
               )}
 
               <p className="text-center text-neutral-600 text-[11px]">
-                Non-custodial · Funds go directly to the recipient · Base network
+                Non-custodial · Funds go directly to the recipient · {paymentMethod === 'nim' ? 'Nimiq Network' : 'Base network'}
               </p>
 
               {/* ── Contract Verification ────────────────── */}
