@@ -1,4 +1,4 @@
-# BasePay
+# BaseTip
 
 **The universal tip jar — powered by Nimiq Pay.**
 
@@ -41,7 +41,7 @@ Runs as a [Nimiq Pay Mini App](https://nimiq.dev/mini-apps) and as a standalone 
 ## Architecture
 
 ```
-basepay/
+basetip/
 ├── contracts/
 │   ├── src/
 │   │   ├── TipRouter.sol             # USDC router (permit, 5% fee)
@@ -89,7 +89,7 @@ Both route **95% to the creator** and **5% to the treasury**. Fees are `constant
 
 ## Nimiq Pay Integration
 
-BasePay runs as a **Nimiq Pay Mini App**, meaning:
+BaseTip runs as a **Nimiq Pay Mini App**, meaning:
 
 - **No wallet extension needed** — Nimiq Pay injects `window.ethereum` (EVM) and the Nimiq provider directly
 - **Auto-connected** — users are already authenticated via Nimiq Pay
@@ -199,7 +199,7 @@ to test an alert.
 
 ## Nimiq Mini Apps Competition
 
-BasePay is submitted to the [Nimiq Mini Apps Competition](https://miniappscompetition.com) under the **Creator & Media** category.
+BaseTip is submitted to the [Nimiq Mini Apps Competition](https://miniappscompetition.com) under the **Creator & Media** category.
 
 - Supports **NIM** native tipping via `sendBasicTransactionWithData` (bonus points)
 - Supports **USDT** on Base via TipRouterUSDT contract

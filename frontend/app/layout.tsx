@@ -20,8 +20,8 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'BasePay — Tip with NIM, USDC, or USDT',
-    template: '%s | BasePay',
+    default: 'BaseTip — Tip with NIM, USDC, or USDT',
+    template: '%s | BaseTip',
   },
   description:
     'Send tips instantly with NIM, USDC, or USDT on Base. Works in Nimiq Pay and any web browser — one scan, one tap, done.',
@@ -33,10 +33,10 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'BasePay',
+    title: 'BaseTip',
   },
   openGraph: {
-    title: 'BasePay — Tip with NIM, USDC, or USDT',
+    title: 'BaseTip — Tip with NIM, USDC, or USDT',
     description:
       'Send tips instantly with multiple tokens on Base. No sign-up, no middleman.',
     type: 'website',
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BasePay — Instant Tips',
+    title: 'BaseTip — Instant Tips',
     description: 'Send tips with NIM, USDC, or USDT on Base. One scan, one tap.',
   },
   icons: {

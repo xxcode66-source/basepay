@@ -34,7 +34,7 @@ interface StoredMessage {
 function getMessagesForRecipient(recipient: Address): StoredMessage[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(`basepay:messages:${recipient.toLowerCase()}`);
+    const raw = localStorage.getItem(`basetip:messages:${recipient.toLowerCase()}`);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -135,7 +135,7 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
           onLoadedRef.current?.(parsed);
         }
       } catch (error) {
-        console.error('[BasePay history] Failed to load tip history:', error);
+        console.error('[BaseTip history] Failed to load tip history:', error);
         setFetchError('Failed to load tip history. Please try again later.');
       }
       setHistoricalLoaded(true);

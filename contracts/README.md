@@ -1,4 +1,4 @@
-# BasePay — Smart Contract
+# BaseTip — Smart Contract
 
 `TipRouter` uses USDC EIP-2612 permits. The sender signs one typed-data message
 off-chain; the router calls `permit()` and routes the fee and streamer amount in

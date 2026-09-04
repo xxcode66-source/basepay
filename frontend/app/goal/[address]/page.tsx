@@ -10,10 +10,10 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 /* ── localStorage helpers ────────────────────────────────── */
 function getGoal(addr: string): number {
   if (typeof window === 'undefined') return 0;
-  return Number(localStorage.getItem(`basepay:goal:${addr.toLowerCase()}`) || '0');
+  return Number(localStorage.getItem(`basetip:goal:${addr.toLowerCase()}`) || '0');
 }
 function setGoal(addr: string, amount: number) {
-  localStorage.setItem(`basepay:goal:${addr.toLowerCase()}`, String(amount));
+  localStorage.setItem(`basetip:goal:${addr.toLowerCase()}`, String(amount));
 }
 
 export default function GoalPage() {

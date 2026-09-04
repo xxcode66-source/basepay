@@ -23,7 +23,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[BasePay ErrorBoundary]', error, errorInfo);
+    console.error('[BaseTip ErrorBoundary]', error, errorInfo);
   }
 
   render() {

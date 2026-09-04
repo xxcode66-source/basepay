@@ -88,7 +88,7 @@ interface StoredMessage {
 }
 
 function storeMessage(recipient: Address, msg: StoredMessage) {
-  const key = `basepay:messages:${recipient.toLowerCase()}`;
+  const key = `basetip:messages:${recipient.toLowerCase()}`;
   const existing: StoredMessage[] = JSON.parse(localStorage.getItem(key) || '[]');
   existing.unshift(msg);
   localStorage.setItem(key, JSON.stringify(existing.slice(0, 100)));
@@ -96,7 +96,7 @@ function storeMessage(recipient: Address, msg: StoredMessage) {
 
 function getGoal(addr: string): number {
   if (typeof window === 'undefined') return 0;
-  return Number(localStorage.getItem(`basepay:goal:${addr.toLowerCase()}`) || '0');
+  return Number(localStorage.getItem(`basetip:goal:${addr.toLowerCase()}`) || '0');
 }
 
 /* ── Icons ───────────────────────────────────────────────── */
@@ -546,8 +546,8 @@ export default function TipPage() {
         {/* ── Header ──────────────────────────────────────── */}
         <header className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <img src="/icon.png" alt="BasePay" className="w-7 h-7 rounded-lg" />
-            <span className="text-sm font-semibold tracking-tight">BasePay</span>
+            <img src="/icon.png" alt="BaseTip" className="w-7 h-7 rounded-lg" />
+            <span className="text-sm font-semibold tracking-tight">BaseTip</span>
           </div>
           {nimiqEnv && currentSender ? (
             <div className="text-xs text-neutral-400 font-mono">

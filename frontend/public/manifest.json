@@ -1,6 +1,6 @@
 {
-  "name": "BasePay",
-  "short_name": "BasePay",
+  "name": "BaseTip",
+  "short_name": "BaseTip",
   "description": "Send tips with USDC, USDT, or NIM to anyone, anywhere on Base network.",
   "start_url": "/",
   "display": "standalone",

@@ -108,7 +108,7 @@ export default function GeneratorPage() {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 16px system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('BasePay', 46, 38);
+    ctx.fillText('BaseTip', 46, 38);
 
     // QR Code white background
     ctx.fillStyle = '#ffffff';
@@ -160,7 +160,7 @@ export default function GeneratorPage() {
     ctx.fillText('SCAN TO TIP', frameWidth / 2, 372);
 
     const link = document.createElement('a');
-    link.download = `basepay-${address.slice(2, 8)}.png`;
+    link.download = `basetip-${address.slice(2, 8)}.png`;
     link.href = frameCanvas.toDataURL('image/png');
     link.click();
   };
@@ -184,8 +184,8 @@ export default function GeneratorPage() {
         {/* ── Nav ──────────────────────────────────────────── */}
         <nav className="w-full px-6 py-5 flex items-center justify-between max-w-5xl mx-auto animate-fade-in-down">
           <div className="flex items-center gap-2">
-            <img src="/icon.png" alt="BasePay" className="w-7 h-7 rounded-lg animate-float" />
-            <span className="text-sm font-semibold tracking-tight">BasePay</span>
+            <img src="/icon.png" alt="BaseTip" className="w-7 h-7 rounded-lg animate-float" />
+            <span className="text-sm font-semibold tracking-tight">BaseTip</span>
           </div>
           <a
             href={inNimiqPay ? "https://nimiq.com" : "https://base.org"}
@@ -280,9 +280,9 @@ export default function GeneratorPage() {
                 >
                   {/* Header: Logo + Brand */}
                   <div className="flex items-center gap-2 mb-3">
-                    <img src="/icon.png" alt="BasePay" className="w-6 h-6 rounded-md" />
+                    <img src="/icon.png" alt="BaseTip" className="w-6 h-6 rounded-md" />
                     <div>
-                      <p className="text-white text-sm font-bold leading-tight">BasePay</p>
+                      <p className="text-white text-sm font-bold leading-tight">BaseTip</p>
                     </div>
                   </div>
 
@@ -386,7 +386,7 @@ export default function GeneratorPage() {
         <footer className="w-full px-6 py-6 border-t border-neutral-800/50 backdrop-blur-sm">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-xs text-neutral-600">
-              BasePay — Non-custodial tip jar. Send USDC, USDT, or NIM to anyone, anywhere.
+              BaseTip — Non-custodial tip jar. Send USDC, USDT, or NIM to anyone, anywhere.
             </p>
             <div className="flex items-center gap-4">
               <span className="text-xs text-neutral-600 flex items-center gap-1.5">

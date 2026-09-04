@@ -33,7 +33,7 @@ export default function ShareButtons({ url, address }: ShareButtonsProps) {
   const shortAddr = `${address.slice(0, 6)}...${address.slice(-4)}`;
 
   const tweetText = encodeURIComponent(
-    `Send me a tip on BasePay! Scan my QR code or click the link below.\n\n${url}`
+    `Send me a tip on BaseTip! Scan my QR code or click the link below.\n\n${url}`
   );
   const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
 
@@ -50,7 +50,7 @@ export default function ShareButtons({ url, address }: ShareButtonsProps) {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'BasePay Tip Jar',
+          title: 'BaseTip',
           text: `Send a tip to ${shortAddr}`,
           url,
         });

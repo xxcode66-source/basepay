@@ -117,7 +117,7 @@ export default function OverlayPage() {
         lastBlockRef.current = latestBlock;
         if (incoming.length > 0) setQueue((prev) => [...prev, ...incoming]);
       } catch (error) {
-        console.error('[BasePay overlay] Failed to poll tip logs:', error);
+        console.error('[BaseTip overlay] Failed to poll tip logs:', error);
       } finally {
         polling = false;
       }

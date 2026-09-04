@@ -11,7 +11,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('BasePay error:', error);
+    console.error('BaseTip error:', error);
   }, [error]);
 
   return (
