@@ -47,6 +47,10 @@ export const metadata: Metadata = {
     title: 'BasePay — Instant Tips',
     description: 'Send tips with NIM, USDC, or USDT on Base. One scan, one tap.',
   },
+  icons: {
+    icon: '/icon.png',
+    apple: '/icon.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

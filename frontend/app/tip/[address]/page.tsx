@@ -546,9 +546,7 @@ export default function TipPage() {
         {/* ── Header ──────────────────────────────────────── */}
         <header className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">B</span>
-            </div>
+            <img src="/icon.png" alt="BasePay" className="w-7 h-7 rounded-lg" />
             <span className="text-sm font-semibold tracking-tight">BasePay</span>
           </div>
           {nimiqEnv && currentSender ? (

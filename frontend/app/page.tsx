@@ -70,9 +70,15 @@ export default function GeneratorPage() {
   const isValid = useMemo(() => isAddress(address), [address]);
   const tipUrl = `${APP_URL}/tip/${address}`;
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const canvas = qrRef.current?.querySelector('canvas');
     if (!canvas) return;
+
+    // Load icon.png for use in the download
+    const iconImg = new Image();
+    iconImg.crossOrigin = 'anonymous';
+    iconImg.src = '/icon.png';
+    await new Promise((resolve) => { iconImg.onload = resolve; });
 
     const scale = 3;
     const frameWidth = 300;
@@ -91,30 +97,23 @@ export default function GeneratorPage() {
     ctx.fillStyle = gradient;
     drawRoundedRect(ctx, 0, 0, frameWidth, frameHeight, 24);
 
-    // Header: Logo + Brand
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('B', 20, 32);
-    // Draw B logo background
-    ctx.fillStyle = '#2563eb';
+    // Header: Icon + Brand
+    ctx.save();
     ctx.beginPath();
-    ctx.roundRect(14, 18, 22, 22, 6);
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('B', 25, 34);
-    
+    ctx.roundRect(14, 18, 24, 24, 6);
+    ctx.clip();
+    ctx.drawImage(iconImg, 14, 18, 24, 24);
+    ctx.restore();
+
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 16px system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('BasePay', 44, 34);
+    ctx.fillText('BasePay', 46, 34);
 
     // "Tip Jar" subtitle
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.font = '11px system-ui, -apple-system, sans-serif';
-    ctx.fillText('Tip Jar', 44, 48);
+    ctx.fillText('Tip Jar', 46, 48);
 
     // QR Code white background
     ctx.fillStyle = '#ffffff';
@@ -123,7 +122,7 @@ export default function GeneratorPage() {
     // Draw QR code
     ctx.drawImage(canvas, 35, 77, 230, 230);
 
-    // Base logo in center of QR
+    // Icon in center of QR
     const logoSize = 36;
     const logoX = (frameWidth - logoSize) / 2;
     const logoY = 62 + (260 - logoSize) / 2;
@@ -131,16 +130,12 @@ export default function GeneratorPage() {
     ctx.beginPath();
     ctx.roundRect(logoX - 4, logoY - 4, logoSize + 8, logoSize + 8, 8);
     ctx.fill();
-    ctx.fillStyle = '#0052FF';
+    ctx.save();
     ctx.beginPath();
     ctx.roundRect(logoX, logoY, logoSize, logoSize, 6);
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 18px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('B', frameWidth / 2, logoY + logoSize / 2 + 1);
-    ctx.textBaseline = 'alphabetic';
+    ctx.clip();
+    ctx.drawImage(iconImg, logoX, logoY, logoSize, logoSize);
+    ctx.restore();
 
     // Token badges at bottom
     const tokens = ['USDC', 'USDT', 'NIM'];
@@ -194,9 +189,7 @@ export default function GeneratorPage() {
         {/* ── Nav ──────────────────────────────────────────── */}
         <nav className="w-full px-6 py-5 flex items-center justify-between max-w-5xl mx-auto animate-fade-in-down">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center animate-float">
-              <span className="text-white text-xs font-bold">B</span>
-            </div>
+            <img src="/icon.png" alt="BasePay" className="w-7 h-7 rounded-lg animate-float" />
             <span className="text-sm font-semibold tracking-tight">BasePay</span>
           </div>
           <a
@@ -292,9 +285,7 @@ export default function GeneratorPage() {
                 >
                   {/* Header: Logo + Brand */}
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-6 h-6 rounded-md bg-blue-600 flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">B</span>
-                    </div>
+                    <img src="/icon.png" alt="BasePay" className="w-6 h-6 rounded-md" />
                     <div>
                       <p className="text-white text-sm font-bold leading-tight">BasePay</p>
                       <p className="text-blue-200/60 text-[10px]">Tip Jar</p>
@@ -307,9 +298,7 @@ export default function GeneratorPage() {
                       <QRCodeCanvas value={tipUrl} size={230} level="H" />
                       {/* Base logo overlay in center */}
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-9 h-9 rounded-md bg-blue-600 border-2 border-white flex items-center justify-center shadow-lg">
-                          <span className="text-white text-sm font-bold">B</span>
-                        </div>
+                        <img src="/icon.png" alt="" className="w-9 h-9 rounded-md border-2 border-white shadow-lg" />
                       </div>
                     </div>
                   </div>
