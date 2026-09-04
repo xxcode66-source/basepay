@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useWatchContractEvent } from 'wagmi';
 import { formatUnits, keccak256, toHex, type Address } from 'viem';
-import { TIP_ROUTER_ABI, TIP_ROUTER_ADDRESS, USDC_DECIMALS } from '@/lib/contracts';
+import { TIP_ROUTER_ABI, TIP_ROUTER_ADDRESS, USDC_DECIMALS, TIP_ROUTER_USDT_ADDRESS, TIP_ROUTER_USDT_ABI, USDT_DECIMALS, BASE_RPC_URL } from '@/lib/contracts';
 import { DisplayName } from '@/lib/basename';
 
 /* ── Types ───────────────────────────────────────────────── */
@@ -14,6 +14,7 @@ interface TipEvent {
   feeAmount: bigint;
   streamerAmount: bigint;
   blockNumber: bigint;
+  token: 'USDC' | 'USDT';
 }
 
 interface TipHistoryProps {
@@ -56,7 +57,7 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
   useEffect(() => {
     async function fetchHistorical() {
       try {
-        const rpcUrl = 'https://mainnet.base.org';
+        const rpcUrl = BASE_RPC_URL;
 
         // Get current block number
         const blockRes = await fetch(rpcUrl, {
@@ -73,31 +74,45 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
         // Pad recipient address to 32 bytes for indexed topic filter
         const paddedRecipient = '0x' + recipient.slice(2).toLowerCase().padStart(64, '0');
 
-        const logs: any[] = [];
-        for (let batchFrom = fromBlock; batchFrom <= latestBlock; batchFrom += MAX_LOG_BLOCK_RANGE + 1) {
-          const batchTo = Math.min(batchFrom + MAX_LOG_BLOCK_RANGE, latestBlock);
-          const logsRes = await fetch(rpcUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              method: 'eth_getLogs',
-              params: [{
-                address: TIP_ROUTER_ADDRESS,
-                fromBlock: '0x' + batchFrom.toString(16),
-                toBlock: '0x' + batchTo.toString(16),
-                topics: [TIP_SENT_TOPIC, null, paddedRecipient],
-              }],
-              id: 2,
-            }),
-          });
-          const logsData = await logsRes.json();
-          if (logsData.error) throw new Error(logsData.error.message);
-          if (Array.isArray(logsData.result)) logs.push(...logsData.result);
+        // Fetch from both USDC and USDT routers
+        const routers = [
+          { address: TIP_ROUTER_ADDRESS, token: 'USDC' as const },
+          { address: TIP_ROUTER_USDT_ADDRESS, token: 'USDT' as const },
+        ];
+
+        const allLogs: (any & { token: 'USDC' | 'USDT' })[] = [];
+
+        for (const router of routers) {
+          // Skip if router address is not set
+          if (!router.address || router.address === '0x0000000000000000000000000000000000000000') continue;
+
+          for (let batchFrom = fromBlock; batchFrom <= latestBlock; batchFrom += MAX_LOG_BLOCK_RANGE + 1) {
+            const batchTo = Math.min(batchFrom + MAX_LOG_BLOCK_RANGE, latestBlock);
+            const logsRes = await fetch(rpcUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jsonrpc: '2.0',
+                method: 'eth_getLogs',
+                params: [{
+                  address: router.address,
+                  fromBlock: '0x' + batchFrom.toString(16),
+                  toBlock: '0x' + batchTo.toString(16),
+                  topics: [TIP_SENT_TOPIC, null, paddedRecipient],
+                }],
+                id: 2,
+              }),
+            });
+            const logsData = await logsRes.json();
+            if (logsData.error) throw new Error(logsData.error.message);
+            if (Array.isArray(logsData.result)) {
+              allLogs.push(...logsData.result.map((log: any) => ({ ...log, token: router.token })));
+            }
+          }
         }
 
-        if (logs.length > 0) {
-          const parsed: TipEvent[] = logs.map((log: any) => {
+        if (allLogs.length > 0) {
+          const parsed: TipEvent[] = allLogs.map((log: any) => {
             // data is a single hex string: 3 × 32-byte words (totalAmount, feeAmount, streamerAmount)
             const data = log.data.startsWith('0x') ? log.data.slice(2) : log.data;
             return {
@@ -108,6 +123,7 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
               feeAmount: BigInt('0x' + data.slice(64, 128)),
               streamerAmount: BigInt('0x' + data.slice(128, 192)),
               blockNumber: BigInt(log.blockNumber),
+              token: log.token,
             };
           });
           setEvents(
@@ -126,7 +142,7 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
     fetchHistorical();
   }, [recipient, limit]);
 
-  // Watch for real-time events
+  // Watch for real-time events from USDC router
   useWatchContractEvent({
     address: TIP_ROUTER_ADDRESS,
     abi: TIP_ROUTER_ABI,
@@ -141,6 +157,35 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
           feeAmount: log.args.feeAmount as bigint,
           streamerAmount: log.args.streamerAmount as bigint,
           blockNumber: log.blockNumber,
+          token: 'USDC' as const,
+        }));
+
+      if (incoming.length > 0) {
+        setEvents((prev) => {
+          const existingIds = new Set(prev.map((e: TipEvent) => e.id));
+          const newEvents = incoming.filter((e: TipEvent) => !existingIds.has(e.id));
+          return [...newEvents, ...prev].slice(0, limit);
+        });
+      }
+    },
+  });
+
+  // Watch for real-time events from USDT router
+  useWatchContractEvent({
+    address: TIP_ROUTER_USDT_ADDRESS,
+    abi: TIP_ROUTER_USDT_ABI,
+    eventName: 'TipSent',
+    onLogs(newLogs: any[]) {
+      const incoming = newLogs
+        .filter((log: any) => log.args.streamer?.toLowerCase() === recipient.toLowerCase())
+        .map((log: any) => ({
+          id: `${log.transactionHash}-${log.logIndex}`,
+          sender: log.args.sender as Address,
+          totalAmount: log.args.totalAmount as bigint,
+          feeAmount: log.args.feeAmount as bigint,
+          streamerAmount: log.args.streamerAmount as bigint,
+          blockNumber: log.blockNumber,
+          token: 'USDT' as const,
         }));
 
       if (incoming.length > 0) {
@@ -196,7 +241,8 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
                 <DisplayName address={tip.sender} />
               </div>
               <span className="text-sm font-semibold text-emerald-400">
-                ${formatUnits(tip.streamerAmount, USDC_DECIMALS)}
+                ${formatUnits(tip.streamerAmount, tip.token === 'USDT' ? USDT_DECIMALS : USDC_DECIMALS)}
+                <span className="text-[10px] text-neutral-500 ml-1">{tip.token}</span>
               </span>
             </div>
             {msg?.message && (

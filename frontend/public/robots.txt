@@ -1,0 +1,8 @@
+# robots.txt for BasePay
+User-agent: *
+Allow: /
+Disallow: /overlay/
+Disallow: /goal/
+
+# Sitemap
+Sitemap: https://basepay.app/sitemap.xml

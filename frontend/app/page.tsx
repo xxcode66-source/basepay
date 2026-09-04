@@ -86,7 +86,7 @@ export default function GeneratorPage() {
     context.font = '900 14px sans-serif';
     context.textAlign = 'center';
     context.letterSpacing = '2px';
-    context.fillText('BASE - USDC', frameWidth / 2, 27);
+    context.fillText('BASE PAY', frameWidth / 2, 27);
 
     context.fillStyle = '#ffffff';
     drawRoundedRect(context, 13, 42, 230, 230, 16);
@@ -223,7 +223,7 @@ export default function GeneratorPage() {
                   className="bg-blue-700 p-3.5 rounded-2xl shadow-xl shadow-blue-950/30"
                 >
                   <p className="text-center text-sm font-black tracking-[0.16em] text-white mb-3">
-                    BASE - USDC
+                    BASE PAY
                   </p>
                   <div className="relative bg-white p-2.5 rounded-xl">
                     <div className="pointer-events-none absolute inset-1.5 rounded-lg border-2 border-blue-700/90" />
@@ -309,7 +309,7 @@ export default function GeneratorPage() {
         <footer className="w-full px-6 py-6 border-t border-neutral-800/50 backdrop-blur-sm">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-xs text-neutral-600">
-              BasePay — Non-custodial tip jar. Send USDC to anyone, anywhere.
+              BasePay — Non-custodial tip jar. Send USDC, USDT, or NIM to anyone, anywhere.
             </p>
             <div className="flex items-center gap-4">
               <span className="text-xs text-neutral-600 flex items-center gap-1.5">
@@ -317,7 +317,7 @@ export default function GeneratorPage() {
                 5% platform fee
               </span>
               <span className="w-1 h-1 rounded-full bg-neutral-700" />
-              <span className="text-xs text-neutral-600">USDC · Base</span>
+              <span className="text-xs text-neutral-600">USDC · USDT · NIM</span>
             </div>
           </div>
         </footer>

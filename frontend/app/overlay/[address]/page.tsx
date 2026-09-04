@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { decodeEventLog, formatUnits, isAddress, keccak256, parseAbiItem, toHex, type Address } from 'viem';
-import { TIP_ROUTER_ADDRESS, USDC_DECIMALS } from '@/lib/contracts';
+import { TIP_ROUTER_ADDRESS, USDC_DECIMALS, TIP_ROUTER_USDT_ADDRESS, USDT_DECIMALS, BASE_RPC_URL } from '@/lib/contracts';
 import { useBasename } from '@/lib/basename';
 
 interface TipAlert {
@@ -11,13 +11,14 @@ interface TipAlert {
   sender: Address;
   amount: string;
   message: string;
+  token: 'USDC' | 'USDT';
 }
 
 const DISPLAY_DURATION_MS = 7000;
 const EXIT_ANIMATION_MS = 500;
 const BASE_MAINNET_CHAIN_ID = 8453;
 const INITIAL_LOOKBACK_BLOCKS = 20n;
-const BASE_RPC_URL = 'https://mainnet.base.org';
+const BASE_RPC_URL_CONFIG = BASE_RPC_URL;
 const TIP_ALERT_EVENT = parseAbiItem(
   'event TipAlert(address indexed sender,address indexed streamer,uint256 streamerAmount,string message)'
 );
@@ -55,7 +56,7 @@ export default function OverlayPage() {
       if (stopped || polling) return;
       polling = true;
       try {
-        const blockResponse = await fetch(BASE_RPC_URL, {
+        const blockResponse = await fetch(BASE_RPC_URL_CONFIG, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }),
@@ -70,34 +71,50 @@ export default function OverlayPage() {
         if (latestBlock <= lastBlockRef.current) return;
 
         const paddedRecipient = `0x${recipientAddress.slice(2).toLowerCase().padStart(64, '0')}`;
-        const logsResponse = await fetch(BASE_RPC_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 2,
-            method: 'eth_getLogs',
-            params: [{
-              address: TIP_ROUTER_ADDRESS,
-              fromBlock: `0x${(lastBlockRef.current + 1n).toString(16)}`,
-              toBlock: `0x${latestBlock.toString(16)}`,
-              topics: [TIP_ALERT_TOPIC, null, paddedRecipient],
-            }],
-          }),
-        });
-        const logsData = await logsResponse.json();
-        if (logsData.error) throw new Error(logsData.error.message);
-        lastBlockRef.current = latestBlock;
 
-        const incoming: TipAlert[] = (logsData.result ?? []).flatMap((log: { transactionHash: string; logIndex: string; topics: string[]; data: string }) => {
-          const id = `${log.transactionHash}-${log.logIndex}`;
-          if (seenLogsRef.current.has(id)) return [];
-          seenLogsRef.current.add(id);
-          const sender = `0x${log.topics[1].slice(-40)}` as Address;
-          const decoded = decodeEventLog({ abi: [TIP_ALERT_EVENT], data: log.data as `0x${string}`, topics: log.topics as [`0x${string}`, ...`0x${string}`[]] });
-          const args = decoded.args as { streamerAmount: bigint; message: string };
-          return [{ id, sender, amount: formatUnits(args.streamerAmount, USDC_DECIMALS), message: args.message }];
-        });
+        // Poll from both USDC and USDT routers
+        const routers = [
+          { address: TIP_ROUTER_ADDRESS, decimals: USDC_DECIMALS, token: 'USDC' as const },
+          { address: TIP_ROUTER_USDT_ADDRESS, decimals: USDT_DECIMALS, token: 'USDT' as const },
+        ];
+
+        const incoming: TipAlert[] = [];
+
+        for (const router of routers) {
+          // Skip if router address is not set
+          if (!router.address || router.address === '0x0000000000000000000000000000000000000000') continue;
+
+          const logsResponse = await fetch(BASE_RPC_URL_CONFIG, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 2,
+              method: 'eth_getLogs',
+              params: [{
+                address: router.address,
+                fromBlock: `0x${(lastBlockRef.current + 1n).toString(16)}`,
+                toBlock: `0x${latestBlock.toString(16)}`,
+                topics: [TIP_ALERT_TOPIC, null, paddedRecipient],
+              }],
+            }),
+          });
+          const logsData = await logsResponse.json();
+          if (logsData.error) throw new Error(logsData.error.message);
+
+          const parsed = (logsData.result ?? []).flatMap((log: { transactionHash: string; logIndex: string; topics: string[]; data: string }) => {
+            const id = `${log.transactionHash}-${log.logIndex}`;
+            if (seenLogsRef.current.has(id)) return [];
+            seenLogsRef.current.add(id);
+            const sender = `0x${log.topics[1].slice(-40)}` as Address;
+            const decoded = decodeEventLog({ abi: [TIP_ALERT_EVENT], data: log.data as `0x${string}`, topics: log.topics as [`0x${string}`, ...`0x${string}`[]] });
+            const args = decoded.args as { streamerAmount: bigint; message: string };
+            return [{ id, sender, amount: formatUnits(args.streamerAmount, router.decimals), message: args.message, token: router.token }];
+          });
+          incoming.push(...parsed);
+        }
+
+        lastBlockRef.current = latestBlock;
         if (incoming.length > 0) setQueue((prev) => [...prev, ...incoming]);
       } catch (error) {
         console.error('[BasePay overlay] Failed to poll tip logs:', error);
@@ -161,7 +178,7 @@ export default function OverlayPage() {
             <div className="relative text-4xl animate-success-bounce">🎉</div>
             <div className="relative">
               <p className="text-blue-400 font-bold text-2xl leading-tight">
-                New Tip: ${current.amount} USDC!
+                New Tip: ${current.amount} {current.token}!
               </p>
               <p className="text-neutral-400 text-lg font-mono">
                 {senderName || `${current.sender.slice(0, 6)}...${current.sender.slice(-4)}`}

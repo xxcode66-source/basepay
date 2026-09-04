@@ -312,9 +312,14 @@ export default function TipPage() {
   });
   const currentNonce = (nonceData as bigint | undefined) ?? 0n;
   const { writeContractAsync: writeTip, data: tipHash } = useWriteContract();
+  const { writeContractAsync: writeApprove, data: approveHash } = useWriteContract();
 
   const { isSuccess: tipConfirmed } = useWaitForTransactionReceipt({
     hash: tipHash,
+  });
+
+  const { isSuccess: approveConfirmed } = useWaitForTransactionReceipt({
+    hash: approveHash,
   });
 
   // USDC tip with permit
@@ -375,7 +380,7 @@ export default function TipPage() {
       
       // Step 1: Approve USDT
       setStep('approving');
-      await writeTip({
+      await writeApprove({
         account: senderAddress,
         chainId: BASE_MAINNET_CHAIN_ID,
         address: USDT_ADDRESS,
@@ -383,26 +388,35 @@ export default function TipPage() {
         functionName: 'approve',
         args: [TIP_ROUTER_USDT_ADDRESS, parsedAmount],
       });
-      
-      // Note: In a real implementation, you would wait for the approve transaction
-      // to be confirmed before proceeding to the tip step. For now, this simplified
-      // version sends both transactions sequentially.
-      
-      // Step 2: Tip
-      setStep('tipping');
-      await writeTip({
-        account: senderAddress,
-        chainId: BASE_MAINNET_CHAIN_ID,
-        address: TIP_ROUTER_USDT_ADDRESS,
-        abi: TIP_ROUTER_USDT_ABI,
-        functionName: 'tip',
-        args: [recipientAddress, parsedAmount, message.trim()],
-      });
+      // Step 2 (tip) will be triggered by useEffect when approveConfirmed becomes true
     } catch (err: any) {
       setStep('error');
       setErrorMsg(err?.shortMessage ?? err?.message ?? 'Transaction was rejected or failed.');
     }
   };
+
+  // Trigger tip after USDT approve is confirmed
+  useEffect(() => {
+    if (approveConfirmed && paymentMethod === 'usdt' && step === 'approving') {
+      (async () => {
+        try {
+          setStep('tipping');
+          await writeTip({
+            account: senderAddress!,
+            chainId: BASE_MAINNET_CHAIN_ID,
+            address: TIP_ROUTER_USDT_ADDRESS,
+            abi: TIP_ROUTER_USDT_ABI,
+            functionName: 'tip',
+            args: [recipientAddress, parsedAmount, message.trim()],
+          });
+        } catch (err: any) {
+          setStep('error');
+          setErrorMsg(err?.shortMessage ?? err?.message ?? 'Transaction was rejected or failed.');
+        }
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [approveConfirmed]);
 
   // NIM native transfer
   const sendNimTip = async () => {

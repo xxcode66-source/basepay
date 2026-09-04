@@ -8,6 +8,9 @@ export const TIP_ROUTER_USDT_ADDRESS = process.env.NEXT_PUBLIC_TIP_ROUTER_USDT_A
 export const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_ADDRESS as `0x${string}`;
 export const USDT_DECIMALS = 6;
 
+// Base RPC URL (configurable via env)
+export const BASE_RPC_URL = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org';
+
 export const TIP_ROUTER_ABI = [{
   type: 'function', name: 'tip',
   inputs: [

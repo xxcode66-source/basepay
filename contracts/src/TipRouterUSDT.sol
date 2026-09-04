@@ -5,10 +5,11 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /// @title TipRouterUSDT
 /// @notice Routes USDT tips using approve + transferFrom (no permit).
-contract TipRouterUSDT is Ownable, ReentrancyGuard {
+contract TipRouterUSDT is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable usdt;
@@ -32,7 +33,7 @@ contract TipRouterUSDT is Ownable, ReentrancyGuard {
     }
 
     function tip(address _streamer, uint256 _amount, string calldata _message)
-        external nonReentrant
+        external nonReentrant whenNotPaused
     {
         if (_streamer == address(0)) revert ZeroAddress();
         if (_streamer == msg.sender) revert SelfTip();
@@ -51,5 +52,15 @@ contract TipRouterUSDT is Ownable, ReentrancyGuard {
         address old = treasuryAddress;
         treasuryAddress = _newTreasury;
         emit TreasuryUpdated(old, _newTreasury);
+    }
+
+    /// @notice Pause the contract in case of emergency. Only callable by owner.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause the contract. Only callable by owner.
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }
