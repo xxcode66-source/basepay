@@ -108,12 +108,7 @@ export default function GeneratorPage() {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 16px system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('BasePay', 46, 34);
-
-    // "Tip Jar" subtitle
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = '11px system-ui, -apple-system, sans-serif';
-    ctx.fillText('Tip Jar', 46, 48);
+    ctx.fillText('BasePay', 46, 38);
 
     // QR Code white background
     ctx.fillStyle = '#ffffff';
@@ -288,7 +283,6 @@ export default function GeneratorPage() {
                     <img src="/icon.png" alt="BasePay" className="w-6 h-6 rounded-md" />
                     <div>
                       <p className="text-white text-sm font-bold leading-tight">BasePay</p>
-                      <p className="text-blue-200/60 text-[10px]">Tip Jar</p>
                     </div>
                   </div>
 
