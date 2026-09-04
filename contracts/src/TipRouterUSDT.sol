@@ -18,8 +18,16 @@ contract TipRouterUSDT is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant MIN_TIP_AMOUNT = 1;
 
-    event TipSent(address indexed sender, address indexed streamer, uint256 totalAmount, uint256 feeAmount, uint256 streamerAmount);
-    event TipAlert(address indexed sender, address indexed streamer, uint256 streamerAmount, string message);
+    event TipSent(
+        address indexed sender,
+        address indexed streamer,
+        uint256 totalAmount,
+        uint256 feeAmount,
+        uint256 streamerAmount
+    );
+    event TipAlert(
+        address indexed sender, address indexed streamer, uint256 streamerAmount, string message
+    );
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     error ZeroAddress();
@@ -27,13 +35,17 @@ contract TipRouterUSDT is Ownable, ReentrancyGuard, Pausable {
     error SelfTip();
 
     constructor(address _usdt, address _treasuryAddress, address _initialOwner) Ownable(_initialOwner) {
-        if (_usdt == address(0) || _treasuryAddress == address(0) || _initialOwner == address(0)) revert ZeroAddress();
+        if (_usdt == address(0) || _treasuryAddress == address(0) || _initialOwner == address(0)) {
+            revert ZeroAddress();
+        }
         usdt = IERC20(_usdt);
         treasuryAddress = _treasuryAddress;
     }
 
     function tip(address _streamer, uint256 _amount, string calldata _message)
-        external nonReentrant whenNotPaused
+        external
+        nonReentrant
+        whenNotPaused
     {
         if (_streamer == address(0)) revert ZeroAddress();
         if (_streamer == msg.sender) revert SelfTip();

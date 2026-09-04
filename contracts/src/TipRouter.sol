@@ -19,8 +19,16 @@ contract TipRouter is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant MIN_TIP_AMOUNT = 1;
 
-    event TipSent(address indexed sender, address indexed streamer, uint256 totalAmount, uint256 feeAmount, uint256 streamerAmount);
-    event TipAlert(address indexed sender, address indexed streamer, uint256 streamerAmount, string message);
+    event TipSent(
+        address indexed sender,
+        address indexed streamer,
+        uint256 totalAmount,
+        uint256 feeAmount,
+        uint256 streamerAmount
+    );
+    event TipAlert(
+        address indexed sender, address indexed streamer, uint256 streamerAmount, string message
+    );
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     error ZeroAddress();
@@ -29,19 +37,30 @@ contract TipRouter is Ownable, ReentrancyGuard, Pausable {
     error PermitFailed();
 
     constructor(address _usdc, address _treasuryAddress, address _initialOwner) Ownable(_initialOwner) {
-        if (_usdc == address(0) || _treasuryAddress == address(0) || _initialOwner == address(0)) revert ZeroAddress();
+        if (_usdc == address(0) || _treasuryAddress == address(0) || _initialOwner == address(0)) {
+            revert ZeroAddress();
+        }
         usdc = IERC20(_usdc);
         treasuryAddress = _treasuryAddress;
     }
 
-    function tip(address _streamer, uint256 _amount, uint256 _deadline, uint256 /* _nonce */, uint8 _v, bytes32 _r, bytes32 _s, string calldata _message)
-        external nonReentrant whenNotPaused
-    {
+    function tip(
+        address _streamer,
+        uint256 _amount,
+        uint256 _deadline,
+        uint256, /* _nonce */
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s,
+        string calldata _message
+    ) external nonReentrant whenNotPaused {
         if (_streamer == address(0)) revert ZeroAddress();
         if (_streamer == msg.sender) revert SelfTip();
         if (_amount < MIN_TIP_AMOUNT) revert AmountTooLow();
 
-        try IERC20Permit(address(usdc)).permit(msg.sender, address(this), _amount, _deadline, _v, _r, _s) {} catch {
+        try IERC20Permit(address(usdc)).permit(
+            msg.sender, address(this), _amount, _deadline, _v, _r, _s
+        ) {} catch {
             revert PermitFailed();
         }
 

@@ -6,26 +6,47 @@ import {TipRouter} from "../src/TipRouter.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockUSDC is ERC20 {
-    bytes32 public constant PERMIT_TYPEHASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+    bytes32 public constant PERMIT_TYPEHASH =
+        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
     mapping(address => uint256) public nonces;
     bytes32 public immutable DOMAIN_SEPARATOR;
 
     constructor() ERC20("USD Coin", "USDC") {
         _mint(msg.sender, 1_000_000 * 10 ** 6);
-        DOMAIN_SEPARATOR = keccak256(abi.encode(
-            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-            keccak256(bytes("USD Coin")), keccak256(bytes("2")), block.chainid, address(this)
-        ));
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes("USD Coin")),
+                keccak256(bytes("2")),
+                block.chainid,
+                address(this)
+            )
+        );
     }
 
-    function decimals() public pure override returns (uint8) { return 6; }
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
 
-    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external {
         require(block.timestamp <= deadline, "USDC: permit expired");
         uint256 nonce = nonces[owner]++;
-        bytes32 structHash = keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonce, deadline));
-        address recovered = ecrecover(keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)), v, r, s);
+        bytes32 structHash =
+            keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonce, deadline));
+        address recovered =
+            ecrecover(keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)), v, r, s);
         require(recovered == owner, "USDC: invalid signature");
         _approve(owner, spender, value);
     }
@@ -44,67 +65,104 @@ contract TipRouterTest is Test {
 
     function setUp() public {
         viewer = vm.addr(viewerPk);
-        vm.prank(owner); usdc = new MockUSDC();
+        vm.prank(owner);
+        usdc = new MockUSDC();
         router = new TipRouter(address(usdc), treasury, owner);
-        vm.prank(owner); usdc.mint(viewer, 100 * 10 ** 6);
+        vm.prank(owner);
+        usdc.mint(viewer, 100 * 10 ** 6);
     }
 
-    function _signPermit(uint256 value, uint256 nonce) internal view returns (uint8 v, bytes32 r, bytes32 s) {
-        bytes32 structHash = keccak256(abi.encode(usdc.PERMIT_TYPEHASH(), viewer, address(router), value, nonce, type(uint256).max));
+    function _signPermit(uint256 value, uint256 nonce)
+        internal
+        view
+        returns (uint8 v, bytes32 r, bytes32 s)
+    {
+        bytes32 structHash =
+            keccak256(abi.encode(usdc.PERMIT_TYPEHASH(), viewer, address(router), value, nonce, type(uint256).max));
         return vm.sign(viewerPk, keccak256(abi.encodePacked("\x19\x01", usdc.DOMAIN_SEPARATOR(), structHash)));
     }
 
     function _tip(uint256 amount) internal {
         uint256 nonce = usdc.nonces(viewer);
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(amount, nonce);
-        vm.prank(viewer); router.tip(streamer, amount, type(uint256).max, nonce, v, r, s, "Test tip");
+        vm.prank(viewer);
+        router.tip(streamer, amount, type(uint256).max, nonce, v, r, s, "Test tip");
     }
 
-    function test_TipSplitsCorrectly() public { _tip(FIVE_USDC); assertEq(usdc.balanceOf(treasury), FEE_ON_FIVE); assertEq(usdc.balanceOf(streamer), FIVE_USDC - FEE_ON_FIVE); }
-    function test_FeeScalesWithAmount() public { _tip(10_000_000); assertEq(usdc.balanceOf(treasury), 500_000); }
-    function test_SmallTipStillPaysFee() public { _tip(5); assertEq(usdc.balanceOf(treasury), 1); assertEq(usdc.balanceOf(streamer), 4); }
+    function test_TipSplitsCorrectly() public {
+        _tip(FIVE_USDC);
+        assertEq(usdc.balanceOf(treasury), FEE_ON_FIVE);
+        assertEq(usdc.balanceOf(streamer), FIVE_USDC - FEE_ON_FIVE);
+    }
+
+    function test_FeeScalesWithAmount() public {
+        _tip(10_000_000);
+        assertEq(usdc.balanceOf(treasury), 500_000);
+    }
+
+    function test_SmallTipStillPaysFee() public {
+        _tip(5);
+        assertEq(usdc.balanceOf(treasury), 1);
+        assertEq(usdc.balanceOf(streamer), 4);
+    }
+
     function test_RevertWhen_AmountIsZero() public {
-        vm.prank(viewer); vm.expectRevert(TipRouter.AmountTooLow.selector);
+        vm.prank(viewer);
+        vm.expectRevert(TipRouter.AmountTooLow.selector);
         router.tip(streamer, 0, type(uint256).max, 0, 0, bytes32(0), bytes32(0), "");
     }
+
     function test_RevertWhen_SelfTip() public {
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(FIVE_USDC, 0);
-        vm.prank(viewer); vm.expectRevert(TipRouter.SelfTip.selector);
+        vm.prank(viewer);
+        vm.expectRevert(TipRouter.SelfTip.selector);
         router.tip(viewer, FIVE_USDC, type(uint256).max, 0, v, r, s, "");
     }
+
     function test_RevertWhen_InvalidSignature() public {
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(999, 0);
-        vm.prank(viewer); vm.expectRevert(TipRouter.PermitFailed.selector);
+        vm.prank(viewer);
+        vm.expectRevert(TipRouter.PermitFailed.selector);
         router.tip(streamer, FIVE_USDC, type(uint256).max, 0, v, r, s, "");
     }
+
     function test_OnlyOwnerCanUpdateTreasury() public {
         address nextTreasury = makeAddr("nextTreasury");
-        vm.prank(viewer); vm.expectRevert(); router.setTreasuryAddress(nextTreasury);
-        vm.prank(owner); router.setTreasuryAddress(nextTreasury);
+        vm.prank(viewer);
+        vm.expectRevert();
+        router.setTreasuryAddress(nextTreasury);
+        vm.prank(owner);
+        router.setTreasuryAddress(nextTreasury);
         assertEq(router.treasuryAddress(), nextTreasury);
     }
 
     // ── Constructor Tests ────────────────────────────────────
+
     function test_RevertWhen_ConstructorZeroUSDC() public {
         vm.expectRevert(TipRouter.ZeroAddress.selector);
         new TipRouter(address(0), treasury, owner);
     }
+
     function test_RevertWhen_ConstructorZeroTreasury() public {
         vm.expectRevert(TipRouter.ZeroAddress.selector);
         new TipRouter(address(usdc), address(0), owner);
     }
+
     function test_RevertWhen_ConstructorZeroOwner() public {
         vm.expectRevert(TipRouter.ZeroAddress.selector);
         new TipRouter(address(usdc), treasury, address(0));
     }
 
     // ── Event Emission Tests ─────────────────────────────────
+
     function test_EmitsTreasuryUpdated() public {
         address nextTreasury = makeAddr("nextTreasury");
         vm.expectEmit(true, true, false, true);
         emit TipRouter.TreasuryUpdated(treasury, nextTreasury);
-        vm.prank(owner); router.setTreasuryAddress(nextTreasury);
+        vm.prank(owner);
+        router.setTreasuryAddress(nextTreasury);
     }
+
     function test_EmitsTipSentAndAlert() public {
         uint256 nonce = usdc.nonces(viewer);
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(FIVE_USDC, nonce);
@@ -112,40 +170,56 @@ contract TipRouterTest is Test {
         emit TipRouter.TipSent(viewer, streamer, FIVE_USDC, FEE_ON_FIVE, FIVE_USDC - FEE_ON_FIVE);
         vm.expectEmit(true, true, false, true);
         emit TipRouter.TipAlert(viewer, streamer, FIVE_USDC - FEE_ON_FIVE, "Hello");
-        vm.prank(viewer); router.tip(streamer, FIVE_USDC, type(uint256).max, nonce, v, r, s, "Hello");
+        vm.prank(viewer);
+        router.tip(streamer, FIVE_USDC, type(uint256).max, nonce, v, r, s, "Hello");
     }
 
     // ── Zero Address Streamer ────────────────────────────────
+
     function test_RevertWhen_StreamerZeroAddress() public {
-        vm.prank(viewer); vm.expectRevert(TipRouter.ZeroAddress.selector);
+        vm.prank(viewer);
+        vm.expectRevert(TipRouter.ZeroAddress.selector);
         router.tip(address(0), FIVE_USDC, type(uint256).max, 0, 0, bytes32(0), bytes32(0), "");
     }
 
     // ── Pausable Tests ───────────────────────────────────────
+
     function test_PauseAndUnpause() public {
-        vm.prank(owner); router.pause();
+        vm.prank(owner);
+        router.pause();
         assertTrue(router.paused());
-        vm.prank(owner); router.unpause();
+        vm.prank(owner);
+        router.unpause();
         assertFalse(router.paused());
     }
+
     function test_RevertWhen_TipWhilePaused() public {
-        vm.prank(owner); router.pause();
+        vm.prank(owner);
+        router.pause();
         uint256 nonce = usdc.nonces(viewer);
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(FIVE_USDC, nonce);
-        vm.prank(viewer); vm.expectRevert("Pausable: paused");
+        vm.prank(viewer);
+        vm.expectRevert("Pausable: paused");
         router.tip(streamer, FIVE_USDC, type(uint256).max, nonce, v, r, s, "");
     }
+
     function test_RevertWhen_NonOwnerPause() public {
-        vm.prank(viewer); vm.expectRevert();
+        vm.prank(viewer);
+        vm.expectRevert();
         router.pause();
     }
+
     function test_RevertWhen_NonOwnerUnpause() public {
-        vm.prank(owner); router.pause();
-        vm.prank(viewer); vm.expectRevert();
+        vm.prank(owner);
+        router.pause();
+        vm.prank(viewer);
+        vm.expectRevert();
         router.unpause();
     }
+
     function test_RevertWhen_SetTreasuryZeroAddress() public {
-        vm.prank(owner); vm.expectRevert(TipRouter.ZeroAddress.selector);
+        vm.prank(owner);
+        vm.expectRevert(TipRouter.ZeroAddress.selector);
         router.setTreasuryAddress(address(0));
     }
 }
