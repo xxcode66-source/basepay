@@ -50,20 +50,7 @@ interface RpcLog {
   blockNumber: string;
 }
 
-interface TipSentArgs {
-  sender: Address;
-  streamer: Address;
-  totalAmount: bigint;
-  feeAmount: bigint;
-  streamerAmount: bigint;
-}
-
-interface ContractLog {
-  args: TipSentArgs;
-  transactionHash: string;
-  logIndex: number;
-  blockNumber: number;
-}
+/* eslint-disable @typescript-eslint/no-explicit-any -- wagmi onLogs callback has deeply nested generic types */
 
 /* ── Compute the TipSent event topic hash ────────────────── */
 const TIP_SENT_TOPIC = keccak256(toHex('TipSent(address,address,uint256,uint256,uint256)'));
@@ -173,15 +160,16 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
     address: TIP_ROUTER_ADDRESS,
     abi: TIP_ROUTER_ABI,
     eventName: 'TipSent',
-    onLogs(newLogs: ContractLog[]) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onLogs(newLogs: any[]) {
       const incoming = newLogs
-        .filter((log) => log.args.streamer?.toLowerCase() === recipient.toLowerCase())
-        .map((log) => ({
+        .filter((log: any) => log.args.streamer?.toLowerCase() === recipient.toLowerCase())
+        .map((log: any) => ({
           id: `${log.transactionHash}-${log.logIndex}`,
-          sender: log.args.sender as Address,
-          totalAmount: log.args.totalAmount as bigint,
-          feeAmount: log.args.feeAmount as bigint,
-          streamerAmount: log.args.streamerAmount as bigint,
+          sender: (log.args.sender ?? '0x0') as Address,
+          totalAmount: (log.args.totalAmount ?? 0n) as bigint,
+          feeAmount: (log.args.feeAmount ?? 0n) as bigint,
+          streamerAmount: (log.args.streamerAmount ?? 0n) as bigint,
           blockNumber: BigInt(log.blockNumber),
           token: 'USDC' as const,
         }));
@@ -201,15 +189,16 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
     address: TIP_ROUTER_USDT_ADDRESS,
     abi: TIP_ROUTER_USDT_ABI,
     eventName: 'TipSent',
-    onLogs(newLogs: ContractLog[]) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onLogs(newLogs: any[]) {
       const incoming = newLogs
-        .filter((log) => log.args.streamer?.toLowerCase() === recipient.toLowerCase())
-        .map((log) => ({
+        .filter((log: any) => log.args.streamer?.toLowerCase() === recipient.toLowerCase())
+        .map((log: any) => ({
           id: `${log.transactionHash}-${log.logIndex}`,
-          sender: log.args.sender as Address,
-          totalAmount: log.args.totalAmount as bigint,
-          feeAmount: log.args.feeAmount as bigint,
-          streamerAmount: log.args.streamerAmount as bigint,
+          sender: (log.args.sender ?? '0x0') as Address,
+          totalAmount: (log.args.totalAmount ?? 0n) as bigint,
+          feeAmount: (log.args.feeAmount ?? 0n) as bigint,
+          streamerAmount: (log.args.streamerAmount ?? 0n) as bigint,
           blockNumber: BigInt(log.blockNumber),
           token: 'USDT' as const,
         }));
