@@ -76,6 +76,17 @@ const PLATFORM_FEE_BPS = 500;
 const BASE_MAINNET_CHAIN_ID = 8453;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+/* ── NIM Address Validation ──────────────────────────────── */
+const NIM_REGEX = /^NQ\d{2}(\s?\d{4}){8}$/;
+function isValidNimAddress(addr: string): boolean {
+  return NIM_REGEX.test(addr.trim());
+}
+function formatNimError(addr: string): string {
+  if (!addr.trim()) return 'Please enter a NIM recipient address';
+  if (!addr.startsWith('NQ')) return 'NIM address must start with "NQ"';
+  return 'Invalid NIM address format (expected: NQ07 0000 0000 0000 0000 0000 0000 0000 0000)';
+}
+
 type PaymentMethod = 'usdc' | 'usdt' | 'nim';
 type Step = 'idle' | 'signing' | 'approving' | 'tipping' | 'success' | 'error';
 
@@ -260,7 +271,7 @@ function GoalProgress({
 export default function TipPage() {
   const params = useParams<{ address: string }>();
   const recipientAddress = params.address as Address;
-  const { address: senderAddress, isConnected } = useAccount();
+  const { address: senderAddress, isConnected, isConnecting } = useAccount();
   const { data: walletClient } = useWalletClient({ chainId: BASE_MAINNET_CHAIN_ID });
 
   // Nimiq integration
@@ -459,13 +470,15 @@ export default function TipPage() {
     }
   };
 
+  const nimAddressValid = isValidNimAddress(nimAddress);
+
   const handleSendTip = async () => {
     setErrorMsg('');
     if (isBusy || parsedAmount === 0n) return;
 
     if (paymentMethod === 'nim') {
-      if (!nimAddress) {
-        setErrorMsg('Please enter NIM recipient address');
+      if (!nimAddressValid) {
+        setErrorMsg(formatNimError(nimAddress));
         return;
       }
       await sendNimTip();
@@ -698,7 +711,7 @@ export default function TipPage() {
               {paymentMethod === 'nim' && (
                 <div className="glass-card glass-card-glow rounded-xl p-4 space-y-2">
                   <label className="text-xs font-medium text-neutral-400">
-                    NIM recipient address (from URL param or enter manually)
+                    NIM recipient address
                   </label>
                   <input
                     type="text"
@@ -708,6 +721,18 @@ export default function TipPage() {
                     disabled={isBusy}
                     className="input-base w-full rounded-lg px-3 py-2.5 text-sm font-mono"
                   />
+                  {nimAddress.length > 0 && !nimAddressValid && (
+                    <p className="text-red-400/80 text-[10px] flex items-center gap-1.5">
+                      <span className="w-1 h-1 rounded-full bg-red-400" />
+                      {formatNimError(nimAddress)}
+                    </p>
+                  )}
+                  {nimAddressValid && (
+                    <p className="text-emerald-400/80 text-[10px] flex items-center gap-1.5">
+                      <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                      Valid NIM address
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -740,10 +765,15 @@ export default function TipPage() {
               )}
 
               {/* Action Button */}
-              {isCurrentlyConnected ? (
+              {isConnecting ? (
+                <div className="w-full rounded-xl py-4 font-semibold text-base flex items-center justify-center gap-2 bg-neutral-800/50 text-neutral-400 border border-neutral-700/50">
+                  <IconSpinner />
+                  Connecting wallet...
+                </div>
+              ) : isCurrentlyConnected ? (
                 <button
                   onClick={handleSendTip}
-                  disabled={isBusy || parsedAmount === 0n || (paymentMethod === 'nim' && !nimAddress)}
+                  disabled={isBusy || parsedAmount === 0n || (paymentMethod === 'nim' && !nimAddressValid)}
                   className={`w-full rounded-xl py-4 font-semibold text-base flex items-center justify-center gap-2 ${
                     isBusy ? 'btn-primary' : 'btn-primary btn-shimmer'
                   }`}

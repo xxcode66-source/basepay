@@ -41,6 +41,30 @@ function getMessagesForRecipient(recipient: Address): StoredMessage[] {
   }
 }
 
+/* ── RPC Log Types ───────────────────────────────────────── */
+interface RpcLog {
+  transactionHash: string;
+  logIndex: string;
+  topics: string[];
+  data: string;
+  blockNumber: string;
+}
+
+interface TipSentArgs {
+  sender: Address;
+  streamer: Address;
+  totalAmount: bigint;
+  feeAmount: bigint;
+  streamerAmount: bigint;
+}
+
+interface ContractLog {
+  args: TipSentArgs;
+  transactionHash: string;
+  logIndex: number;
+  blockNumber: number;
+}
+
 /* ── Compute the TipSent event topic hash ────────────────── */
 const TIP_SENT_TOPIC = keccak256(toHex('TipSent(address,address,uint256,uint256,uint256)'));
 const MAX_LOG_BLOCK_RANGE = 10_000;
@@ -81,7 +105,7 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
           { address: TIP_ROUTER_USDT_ADDRESS, token: 'USDT' as const },
         ];
 
-        const allLogs: (any & { token: 'USDC' | 'USDT' })[] = [];
+        const allLogs: (RpcLog & { token: 'USDC' | 'USDT' })[] = [];
 
         for (const router of routers) {
           // Skip if router address is not set
@@ -107,13 +131,13 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
             const logsData = await logsRes.json();
             if (logsData.error) throw new Error(logsData.error.message);
             if (Array.isArray(logsData.result)) {
-              allLogs.push(...logsData.result.map((log: any) => ({ ...log, token: router.token })));
+              allLogs.push(...logsData.result.map((log: RpcLog) => ({ ...log, token: router.token })));
             }
           }
         }
 
         if (allLogs.length > 0) {
-          const parsed: TipEvent[] = allLogs.map((log: any) => {
+          const parsed: TipEvent[] = allLogs.map((log: RpcLog & { token: 'USDC' | 'USDT' }) => {
             // data is a single hex string: 3 × 32-byte words (totalAmount, feeAmount, streamerAmount)
             const data = log.data.startsWith('0x') ? log.data.slice(2) : log.data;
             return {
@@ -149,16 +173,16 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
     address: TIP_ROUTER_ADDRESS,
     abi: TIP_ROUTER_ABI,
     eventName: 'TipSent',
-    onLogs(newLogs: any[]) {
+    onLogs(newLogs: ContractLog[]) {
       const incoming = newLogs
-        .filter((log: any) => log.args.streamer?.toLowerCase() === recipient.toLowerCase())
-        .map((log: any) => ({
+        .filter((log) => log.args.streamer?.toLowerCase() === recipient.toLowerCase())
+        .map((log) => ({
           id: `${log.transactionHash}-${log.logIndex}`,
           sender: log.args.sender as Address,
           totalAmount: log.args.totalAmount as bigint,
           feeAmount: log.args.feeAmount as bigint,
           streamerAmount: log.args.streamerAmount as bigint,
-          blockNumber: log.blockNumber,
+          blockNumber: BigInt(log.blockNumber),
           token: 'USDC' as const,
         }));
 
@@ -177,16 +201,16 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
     address: TIP_ROUTER_USDT_ADDRESS,
     abi: TIP_ROUTER_USDT_ABI,
     eventName: 'TipSent',
-    onLogs(newLogs: any[]) {
+    onLogs(newLogs: ContractLog[]) {
       const incoming = newLogs
-        .filter((log: any) => log.args.streamer?.toLowerCase() === recipient.toLowerCase())
-        .map((log: any) => ({
+        .filter((log) => log.args.streamer?.toLowerCase() === recipient.toLowerCase())
+        .map((log) => ({
           id: `${log.transactionHash}-${log.logIndex}`,
           sender: log.args.sender as Address,
           totalAmount: log.args.totalAmount as bigint,
           feeAmount: log.args.feeAmount as bigint,
           streamerAmount: log.args.streamerAmount as bigint,
-          blockNumber: log.blockNumber,
+          blockNumber: BigInt(log.blockNumber),
           token: 'USDT' as const,
         }));
 

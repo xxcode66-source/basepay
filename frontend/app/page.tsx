@@ -78,7 +78,11 @@ export default function GeneratorPage() {
     const iconImg = new Image();
     iconImg.crossOrigin = 'anonymous';
     iconImg.src = '/icon.png';
-    await new Promise((resolve) => { iconImg.onload = resolve; });
+    await new Promise<void>((resolve, reject) => {
+      iconImg.onload = () => resolve();
+      iconImg.onerror = () => reject(new Error('Failed to load icon.png'));
+      setTimeout(() => reject(new Error('Icon load timed out')), 5000);
+    });
 
     const scale = 3;
     const frameWidth = 300;
