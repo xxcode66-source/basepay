@@ -54,4 +54,67 @@ contract TipRouterUSDTTest is Test {
         vm.prank(owner); router.setTreasuryAddress(nextTreasury);
         assertEq(router.treasuryAddress(), nextTreasury);
     }
+
+    // ── Constructor Tests ────────────────────────────────────
+    function test_RevertWhen_ConstructorZeroUSDT() public {
+        vm.expectRevert(TipRouterUSDT.ZeroAddress.selector);
+        new TipRouterUSDT(address(0), treasury, owner);
+    }
+    function test_RevertWhen_ConstructorZeroTreasury() public {
+        vm.expectRevert(TipRouterUSDT.ZeroAddress.selector);
+        new TipRouterUSDT(address(usdt), address(0), owner);
+    }
+    function test_RevertWhen_ConstructorZeroOwner() public {
+        vm.expectRevert(TipRouterUSDT.ZeroAddress.selector);
+        new TipRouterUSDT(address(usdt), treasury, address(0));
+    }
+
+    // ── Event Emission Tests ─────────────────────────────────
+    function test_EmitsTreasuryUpdated() public {
+        address nextTreasury = makeAddr("nextTreasury");
+        vm.expectEmit(true, true, false, true);
+        emit TipRouterUSDT.TreasuryUpdated(treasury, nextTreasury);
+        vm.prank(owner); router.setTreasuryAddress(nextTreasury);
+    }
+    function test_EmitsTipSentAndAlert() public {
+        vm.prank(viewer); usdt.approve(address(router), FIVE_USDT);
+        vm.expectEmit(true, true, false, true);
+        emit TipRouterUSDT.TipSent(viewer, streamer, FIVE_USDT, FEE_ON_FIVE, FIVE_USDT - FEE_ON_FIVE);
+        vm.expectEmit(true, true, false, true);
+        emit TipRouterUSDT.TipAlert(viewer, streamer, FIVE_USDT - FEE_ON_FIVE, "Hello");
+        vm.prank(viewer); router.tip(streamer, FIVE_USDT, "Hello");
+    }
+
+    // ── Zero Address Streamer ────────────────────────────────
+    function test_RevertWhen_StreamerZeroAddress() public {
+        vm.prank(viewer); vm.expectRevert(TipRouterUSDT.ZeroAddress.selector);
+        router.tip(address(0), FIVE_USDT, "");
+    }
+
+    // ── Pausable Tests ───────────────────────────────────────
+    function test_PauseAndUnpause() public {
+        vm.prank(owner); router.pause();
+        assertTrue(router.paused());
+        vm.prank(owner); router.unpause();
+        assertFalse(router.paused());
+    }
+    function test_RevertWhen_TipWhilePaused() public {
+        vm.prank(owner); router.pause();
+        vm.prank(viewer); usdt.approve(address(router), FIVE_USDT);
+        vm.prank(viewer); vm.expectRevert("Pausable: paused");
+        router.tip(streamer, FIVE_USDT, "");
+    }
+    function test_RevertWhen_NonOwnerPause() public {
+        vm.prank(viewer); vm.expectRevert();
+        router.pause();
+    }
+    function test_RevertWhen_NonOwnerUnpause() public {
+        vm.prank(owner); router.pause();
+        vm.prank(viewer); vm.expectRevert();
+        router.unpause();
+    }
+    function test_RevertWhen_SetTreasuryZeroAddress() public {
+        vm.prank(owner); vm.expectRevert(TipRouterUSDT.ZeroAddress.selector);
+        router.setTreasuryAddress(address(0));
+    }
 }

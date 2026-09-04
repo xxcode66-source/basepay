@@ -2,7 +2,7 @@
 # Deploy TipRouter ke Base Mainnet
 # ==================================
 # Cara pakai:
-#   1. Copy file ini ke .env, isi private key & Basescan API key
+#   1. Copy .env.example ke .env, isi semua variabel
 #   2. Jalankan: bash deploy.sh
 
 set -e
@@ -12,19 +12,32 @@ if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
-# Validate
+# Validate required vars
 if [ -z "$PRIVATE_KEY" ]; then
     echo "ERROR: PRIVATE_KEY belum di-set di file .env"
     exit 1
 fi
+if [ -z "$TREASURY_ADDRESS" ]; then
+    echo "ERROR: TREASURY_ADDRESS belum di-set di file .env"
+    exit 1
+fi
+if [ -z "$OWNER_ADDRESS" ]; then
+    echo "ERROR: OWNER_ADDRESS belum di-set di file .env"
+    exit 1
+fi
+
+# Default USDC address (Base Mainnet)
+USDC_ADDRESS=${USDC_ADDRESS:-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913}
+RPC_URL=${RPC_URL:-https://mainnet.base.org}
+CHAIN_ID=${CHAIN_ID:-8453}
 
 echo ""
 echo "=== Deploying TipRouter to Base Mainnet ==="
 echo ""
-echo "  USDC:     0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-echo "  Treasury: 0xB3082C43B1A881635ddB0e0F4d42F83da52eA03F"
-echo "  Owner:    0xc8446B28203A7324406d48Ce879F32fbE6f962a4"
-echo "  Network:  https://mainnet.base.org (Chain ID: 8453)"
+echo "  USDC:     $USDC_ADDRESS"
+echo "  Treasury: $TREASURY_ADDRESS"
+echo "  Owner:    $OWNER_ADDRESS"
+echo "  Network:  $RPC_URL (Chain ID: $CHAIN_ID)"
 echo ""
 
 VERIFY_FLAG=""
@@ -36,15 +49,15 @@ else
 fi
 
 forge create src/TipRouter.sol:TipRouter \
-  --rpc-url https://mainnet.base.org \
+  --rpc-url "$RPC_URL" \
   --private-key "$PRIVATE_KEY" \
-  --chain-id 8453 \
-    --broadcast \
+  --chain-id "$CHAIN_ID" \
+  --broadcast \
   $VERIFY_FLAG \
   --constructor-args \
-    0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
-    0xB3082C43B1A881635ddB0e0F4d42F83da52eA03F \
-    0xc8446B28203A7324406d48Ce879F32fbE6f962a4
+    "$USDC_ADDRESS" \
+    "$TREASURY_ADDRESS" \
+    "$OWNER_ADDRESS"
 
 echo ""
 echo "=== Deploy successful! ==="

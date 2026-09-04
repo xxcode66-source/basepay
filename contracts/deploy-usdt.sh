@@ -2,7 +2,7 @@
 # Deploy TipRouterUSDT ke Base Mainnet
 # ==================================
 # Cara pakai:
-#   1. Copy .env.example ke .env, isi private key & Basescan API key
+#   1. Copy .env.example ke .env, isi semua variabel
 #   2. Jalankan: bash deploy-usdt.sh
 
 set -e
@@ -12,19 +12,32 @@ if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
-# Validate
+# Validate required vars
 if [ -z "$PRIVATE_KEY" ]; then
     echo "ERROR: PRIVATE_KEY belum di-set di file .env"
     exit 1
 fi
+if [ -z "$TREASURY_ADDRESS" ]; then
+    echo "ERROR: TREASURY_ADDRESS belum di-set di file .env"
+    exit 1
+fi
+if [ -z "$OWNER_ADDRESS" ]; then
+    echo "ERROR: OWNER_ADDRESS belum di-set di file .env"
+    exit 1
+fi
+
+# Default USDT address (Base Mainnet)
+USDT_ADDRESS=${USDT_ADDRESS:-0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2}
+RPC_URL=${RPC_URL:-https://mainnet.base.org}
+CHAIN_ID=${CHAIN_ID:-8453}
 
 echo ""
 echo "=== Deploying TipRouterUSDT to Base Mainnet ==="
 echo ""
-echo "  USDT:     0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"
-echo "  Treasury: 0xB3082C43B1A881635ddB0e0F4d42F83da52eA03F"
-echo "  Owner:    0xc8446B28203A7324406d48Ce879F32fbE6f962a4"
-echo "  Network:  https://mainnet.base.org (Chain ID: 8453)"
+echo "  USDT:     $USDT_ADDRESS"
+echo "  Treasury: $TREASURY_ADDRESS"
+echo "  Owner:    $OWNER_ADDRESS"
+echo "  Network:  $RPC_URL (Chain ID: $CHAIN_ID)"
 echo ""
 
 VERIFY_FLAG=""
@@ -36,15 +49,15 @@ else
 fi
 
 forge create src/TipRouterUSDT.sol:TipRouterUSDT \
-  --rpc-url https://mainnet.base.org \
+  --rpc-url "$RPC_URL" \
   --private-key "$PRIVATE_KEY" \
-  --chain-id 8453 \
+  --chain-id "$CHAIN_ID" \
   --broadcast \
   $VERIFY_FLAG \
   --constructor-args \
-    0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2 \
-    0xB3082C43B1A881635ddB0e0F4d42F83da52eA03F \
-    0xc8446B28203A7324406d48Ce879F32fbE6f962a4
+    "$USDT_ADDRESS" \
+    "$TREASURY_ADDRESS" \
+    "$OWNER_ADDRESS"
 
 echo ""
 echo "=== Deploy successful! ==="
