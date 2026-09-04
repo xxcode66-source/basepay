@@ -90,7 +90,8 @@ export default function GeneratorPage() {
   const addressType = useMemo(() => detectAddressType(address), [address]);
   const isValid = addressType !== 'invalid';
   const isNim = addressType === 'nim';
-  const qrContent = isNim ? getNimiqPaymentUri(address) : `${APP_URL}/tip/${address}`;
+  const cleanAddr = address.trim();
+  const qrContent = isNim ? getNimiqPaymentUri(cleanAddr) : `${APP_URL}/tip/${cleanAddr}`;
   const qrTokens = isNim ? ['NIM'] : ['USDC', 'USDT', 'NIM'];
 
   const handleDownload = async () => {
@@ -265,7 +266,7 @@ export default function GeneratorPage() {
                   </label>
                   <input
                     value={address}
-                    onChange={(e) => setAddress(e.target.value.trim())}
+                    onChange={(e) => setAddress(e.target.value)}
                     placeholder="0x... or NQ07 0000 0000 ..."
                     spellCheck={false}
                     className="input-base w-full rounded-xl px-4 py-3.5 text-sm font-mono"
