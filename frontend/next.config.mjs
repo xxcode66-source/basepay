@@ -38,6 +38,10 @@ const nextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@x402/evm/upto/client': false,
+      '@x402/evm': false,
+      '@x402/core': false,
+      '@x402/extensions': false,
+      '@x402/svm': false,
       '@react-native-async-storage/async-storage': false,
       'pino-pretty': false,
     };
