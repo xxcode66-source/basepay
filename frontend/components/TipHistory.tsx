@@ -50,6 +50,7 @@ const HISTORY_BLOCKS = 200_000;
 export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHistoryProps) {
   const [events, setEvents] = useState<TipEvent[]>([]);
   const [historicalLoaded, setHistoricalLoaded] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const onLoadedRef = useRef(onLoaded);
   onLoadedRef.current = onLoaded;
 
@@ -135,6 +136,7 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
         }
       } catch (error) {
         console.error('[BasePay history] Failed to load tip history:', error);
+        setFetchError('Failed to load tip history. Please try again later.');
       }
       setHistoricalLoaded(true);
     }
@@ -209,6 +211,14 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
             <div className="skeleton h-3 w-20 rounded" />
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="text-center py-6">
+        <p className="text-neutral-500 text-xs">{fetchError}</p>
       </div>
     );
   }

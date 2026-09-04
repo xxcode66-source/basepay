@@ -73,7 +73,7 @@ export default function GoalPage() {
           <div className="glass-card rounded-2xl p-6 space-y-5">
             <div>
               <label className="text-xs font-medium text-neutral-400 mb-2 block">
-                Goal amount (USDC)
+                Goal amount (USD)
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-neutral-500 text-2xl font-bold">$</span>

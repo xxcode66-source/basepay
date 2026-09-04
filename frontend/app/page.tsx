@@ -1,13 +1,12 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { isAddress } from 'viem';
 import { IconCheck, IconCopy, IconDownload, IconArrowRight } from '@/lib/ui-icons';
 import { isNimiqPay } from '@/lib/nimiq';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-const IN_NIMIQ_PAY = typeof window !== 'undefined' && isNimiqPay();
 
 function drawRoundedRect(
   context: CanvasRenderingContext2D,
@@ -60,7 +59,13 @@ export default function GeneratorPage() {
   const [address, setAddress] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [inNimiqPay, setInNimiqPay] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
+
+  // Detect Nimiq Pay environment after hydration
+  useEffect(() => {
+    setInNimiqPay(isNimiqPay());
+  }, []);
 
   const isValid = useMemo(() => isAddress(address), [address]);
   const tipUrl = `${APP_URL}/tip/${address}`;
@@ -69,40 +74,103 @@ export default function GeneratorPage() {
     const canvas = qrRef.current?.querySelector('canvas');
     if (!canvas) return;
 
-    const scale = 2;
-    const frameWidth = 256;
-    const frameHeight = 296;
+    const scale = 3;
+    const frameWidth = 300;
+    const frameHeight = 380;
     const frameCanvas = document.createElement('canvas');
     frameCanvas.width = frameWidth * scale;
     frameCanvas.height = frameHeight * scale;
-    const context = frameCanvas.getContext('2d');
-    if (!context) return;
-    context.scale(scale, scale);
+    const ctx = frameCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(scale, scale);
 
-    context.fillStyle = '#1d4ed8';
-    drawRoundedRect(context, 0, 0, frameWidth, frameHeight, 22);
+    // Background with gradient-like effect
+    const gradient = ctx.createLinearGradient(0, 0, 0, frameHeight);
+    gradient.addColorStop(0, '#1e40af');
+    gradient.addColorStop(1, '#1d4ed8');
+    ctx.fillStyle = gradient;
+    drawRoundedRect(ctx, 0, 0, frameWidth, frameHeight, 24);
 
-    context.fillStyle = '#ffffff';
-    context.font = '900 14px sans-serif';
-    context.textAlign = 'center';
-    context.letterSpacing = '2px';
-    context.fillText('BASE PAY', frameWidth / 2, 27);
+    // Header: Logo + Brand
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('B', 20, 32);
+    // Draw B logo background
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath();
+    ctx.roundRect(14, 18, 22, 22, 6);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('B', 25, 34);
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('BasePay', 44, 34);
 
-    context.fillStyle = '#ffffff';
-    drawRoundedRect(context, 13, 42, 230, 230, 16);
-    context.drawImage(canvas, 28, 57, 200, 200);
+    // "Tip Jar" subtitle
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '11px system-ui, -apple-system, sans-serif';
+    ctx.fillText('Tip Jar', 44, 48);
 
-    context.strokeStyle = '#1d4ed8';
-    context.lineWidth = 2;
-    context.strokeRect(28, 57, 200, 200);
+    // QR Code white background
+    ctx.fillStyle = '#ffffff';
+    drawRoundedRect(ctx, 20, 62, 260, 260, 16);
+    
+    // Draw QR code
+    ctx.drawImage(canvas, 35, 77, 230, 230);
 
-    context.fillStyle = '#ffffff';
-    context.font = '900 14px sans-serif';
-    context.letterSpacing = '2px';
-    context.fillText('SCAN ME', frameWidth / 2, 286);
+    // Base logo in center of QR
+    const logoSize = 36;
+    const logoX = (frameWidth - logoSize) / 2;
+    const logoY = 62 + (260 - logoSize) / 2;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(logoX - 4, logoY - 4, logoSize + 8, logoSize + 8, 8);
+    ctx.fill();
+    ctx.fillStyle = '#0052FF';
+    ctx.beginPath();
+    ctx.roundRect(logoX, logoY, logoSize, logoSize, 6);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 18px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('B', frameWidth / 2, logoY + logoSize / 2 + 1);
+    ctx.textBaseline = 'alphabetic';
+
+    // Token badges at bottom
+    const tokens = ['USDC', 'USDT', 'NIM'];
+    const badgeY = 338;
+    const badgeWidth = 56;
+    const badgeHeight = 22;
+    const totalBadgesWidth = tokens.length * badgeWidth + (tokens.length - 1) * 8;
+    let badgeX = (frameWidth - totalBadgesWidth) / 2;
+    
+    tokens.forEach((token) => {
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 11);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(token, badgeX + badgeWidth / 2, badgeY + 15);
+      badgeX += badgeWidth + 8;
+    });
+
+    // "SCAN TO TIP" text
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.letterSpacing = '2px';
+    ctx.fillText('SCAN TO TIP', frameWidth / 2, 372);
 
     const link = document.createElement('a');
-    link.download = `basepay-qr-${address.slice(2, 8)}.png`;
+    link.download = `basepay-${address.slice(2, 8)}.png`;
     link.href = frameCanvas.toDataURL('image/png');
     link.click();
   };
@@ -132,13 +200,13 @@ export default function GeneratorPage() {
             <span className="text-sm font-semibold tracking-tight">BasePay</span>
           </div>
           <a
-            href={IN_NIMIQ_PAY ? "https://nimiq.com" : "https://base.org"}
+            href={inNimiqPay ? "https://nimiq.com" : "https://base.org"}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors flex items-center gap-1.5"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-            {IN_NIMIQ_PAY ? 'Nimiq Pay Mini App' : 'Built on Base'}
+            {inNimiqPay ? 'Nimiq Pay Mini App' : 'Built on Base'}
           </a>
         </nav>
 
@@ -147,16 +215,16 @@ export default function GeneratorPage() {
           <div className="text-center max-w-lg mx-auto mb-12 animate-fade-in-up">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium mb-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-              {IN_NIMIQ_PAY ? 'Powered by Nimiq Pay & Base' : 'USDC on Base Network'}
+              {inNimiqPay ? 'Powered by Nimiq Pay & Base' : 'USDC · USDT · NIM on Base'}
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gradient leading-tight mb-4">
               The fastest way to<br />
               <span className="text-gradient-blue">send a tip.</span>
             </h1>
             <p className="text-neutral-400 text-base leading-relaxed max-w-md mx-auto">
-              {IN_NIMIQ_PAY 
+              {inNimiqPay 
                 ? 'Send tips with NIM, USDC, or USDT instantly — just one scan, one tap, done.'
-                : 'Generate a personal tip jar link. Anyone can send you USDC instantly — just one scan, one tap, done.'
+                : 'Generate a personal tip jar link. Anyone can send you USDC, USDT, or NIM instantly — just one scan, one tap, done.'
               }
             </p>
           </div>
@@ -220,21 +288,47 @@ export default function GeneratorPage() {
 
                 <div
                   ref={qrRef}
-                  className="bg-blue-700 p-3.5 rounded-2xl shadow-xl shadow-blue-950/30"
+                  className="bg-gradient-to-b from-blue-700 to-blue-800 p-4 rounded-2xl shadow-xl shadow-blue-950/30 w-full max-w-[280px]"
                 >
-                  <p className="text-center text-sm font-black tracking-[0.16em] text-white mb-3">
-                    BASE PAY
-                  </p>
-                  <div className="relative bg-white p-2.5 rounded-xl">
-                    <div className="pointer-events-none absolute inset-1.5 rounded-lg border-2 border-blue-700/90" />
-                    <div className="pointer-events-none absolute -top-0.5 -left-0.5 w-4 h-4 bg-white border-r-2 border-b-2 border-blue-700 rounded-br-md" />
-                    <div className="pointer-events-none absolute -top-0.5 -right-0.5 w-4 h-4 bg-white border-l-2 border-b-2 border-blue-700 rounded-bl-md" />
-                    <div className="pointer-events-none absolute -bottom-0.5 -left-0.5 w-4 h-4 bg-white border-r-2 border-t-2 border-blue-700 rounded-tr-md" />
-                    <div className="pointer-events-none absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white border-l-2 border-t-2 border-blue-700 rounded-tl-md" />
-                    <QRCodeCanvas value={tipUrl} size={200} level="H" />
+                  {/* Header: Logo + Brand */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-md bg-blue-600 flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">B</span>
+                    </div>
+                    <div>
+                      <p className="text-white text-sm font-bold leading-tight">BasePay</p>
+                      <p className="text-blue-200/60 text-[10px]">Tip Jar</p>
+                    </div>
                   </div>
-                  <p className="text-center text-sm font-black tracking-[0.18em] text-white mt-3">
-                    SCAN ME
+
+                  {/* QR Code */}
+                  <div className="relative bg-white p-3 rounded-xl">
+                    <div className="relative">
+                      <QRCodeCanvas value={tipUrl} size={230} level="H" />
+                      {/* Base logo overlay in center */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-9 h-9 rounded-md bg-blue-600 border-2 border-white flex items-center justify-center shadow-lg">
+                          <span className="text-white text-sm font-bold">B</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Token badges */}
+                  <div className="flex items-center justify-center gap-2 mt-3">
+                    {['USDC', 'USDT', 'NIM'].map((token) => (
+                      <span
+                        key={token}
+                        className="px-2.5 py-1 rounded-full bg-white/10 text-white text-[10px] font-bold tracking-wide"
+                      >
+                        {token}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Scan text */}
+                  <p className="text-center text-[10px] font-bold tracking-[0.2em] text-blue-200/70 mt-2">
+                    SCAN TO TIP
                   </p>
                 </div>
 

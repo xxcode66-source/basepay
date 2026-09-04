@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import {
@@ -42,14 +42,14 @@ import ShareButtons from '@/components/ShareButtons';
 
 /* ── Confetti Component ──────────────────────────────────── */
 function Confetti() {
-  const pieces = Array.from({ length: 30 }, (_, i) => ({
+  const pieces = useMemo(() => Array.from({ length: 30 }, (_, i) => ({
     id: i,
     left: Math.random() * 100,
     delay: Math.random() * 0.5,
     duration: 1 + Math.random() * 1.5,
     color: ['#3b82f6', '#10b981', '#6366f1', '#f59e0b', '#ec4899'][i % 5],
     size: 4 + Math.random() * 6,
-  }));
+  })), []);
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
       {pieces.map((p) => (
@@ -297,10 +297,13 @@ export default function TipPage() {
   }, [recipientAddress, validRecipient]);
 
   // Calculate total raised from TipHistory events
-  const handleHistoryLoaded = (events: { streamerAmount: bigint }[]) => {
-    const total = events.reduce((sum, e) => sum + Number(e.streamerAmount), 0);
-    const divisor = paymentMethod === 'nim' ? 1e5 : 1e6;
-    setRaised(total / divisor);
+  const handleHistoryLoaded = (events: { streamerAmount: bigint; token: 'USDC' | 'USDT' }[]) => {
+    // Filter events by selected payment method (NIM has no on-chain events)
+    const filtered = paymentMethod === 'nim' 
+      ? [] 
+      : events.filter(e => e.token === paymentMethod.toUpperCase());
+    const total = filtered.reduce((sum, e) => sum + Number(e.streamerAmount), 0);
+    setRaised(total / 1e6);
   };
 
   const { data: nonceData } = useReadContract({
