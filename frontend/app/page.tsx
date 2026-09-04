@@ -8,6 +8,26 @@ import { isNimiqPay } from '@/lib/nimiq';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+/* ── Address Type Detection ──────────────────────────────── */
+const NIM_REGEX = /^NQ\d{2}(\s?\d{4}){8}$/;
+type AddressType = 'evm' | 'nim' | 'invalid';
+
+function detectAddressType(addr: string): AddressType {
+  const trimmed = addr.trim();
+  if (!trimmed) return 'invalid';
+  if (trimmed.startsWith('0x') && isAddress(trimmed)) return 'evm';
+  if (NIM_REGEX.test(trimmed)) return 'nim';
+  return 'invalid';
+}
+
+function nimToRaw(addr: string): string {
+  return addr.replace(/\s/g, '');
+}
+
+function getNimiqPaymentUri(addr: string): string {
+  return `nimiq:${nimToRaw(addr)}`;
+}
+
 function drawRoundedRect(
   context: CanvasRenderingContext2D,
   x: number,
@@ -41,12 +61,12 @@ const STEPS = [
   {
     num: '01',
     title: 'Enter your address',
-    desc: 'Paste your Base wallet address to generate a unique tip link.',
+    desc: 'Paste your EVM (0x) or NIM (NQ) address to generate a QR code.',
   },
   {
     num: '02',
     title: 'Get your QR code',
-    desc: 'A scannable QR code and shareable link are generated instantly.',
+    desc: 'EVM gets a tip page link. NIM gets a payment URI scannable by Nimiq Wallet.',
   },
   {
     num: '03',
@@ -67,8 +87,11 @@ export default function GeneratorPage() {
     setInNimiqPay(isNimiqPay());
   }, []);
 
-  const isValid = useMemo(() => isAddress(address), [address]);
-  const tipUrl = `${APP_URL}/tip/${address}`;
+  const addressType = useMemo(() => detectAddressType(address), [address]);
+  const isValid = addressType !== 'invalid';
+  const isNim = addressType === 'nim';
+  const qrContent = isNim ? getNimiqPaymentUri(address) : `${APP_URL}/tip/${address}`;
+  const qrTokens = isNim ? ['NIM'] : ['USDC', 'USDT', 'NIM'];
 
   const handleDownload = async () => {
     const canvas = qrRef.current?.querySelector('canvas');
@@ -137,7 +160,7 @@ export default function GeneratorPage() {
     ctx.restore();
 
     // Token badges at bottom
-    const tokens = ['USDC', 'USDT', 'NIM'];
+    const tokens = isNim ? ['NIM'] : ['USDC', 'USDT', 'NIM'];
     const badgeY = 338;
     const badgeWidth = 56;
     const badgeHeight = 22;
@@ -164,13 +187,14 @@ export default function GeneratorPage() {
     ctx.fillText('SCAN TO TIP', frameWidth / 2, 372);
 
     const link = document.createElement('a');
-    link.download = `basetip-${address.slice(2, 8)}.png`;
+    const suffix = isNim ? nimToRaw(address).slice(2, 8) : address.slice(2, 8);
+    link.download = `basetip-${suffix}.png`;
     link.href = frameCanvas.toDataURL('image/png');
     link.click();
   };
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(tipUrl);
+    await navigator.clipboard.writeText(qrContent);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -207,7 +231,7 @@ export default function GeneratorPage() {
           <div className="text-center max-w-lg mx-auto mb-12 animate-fade-in-up">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium mb-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-              {inNimiqPay ? 'Powered by Nimiq Pay & Base' : 'USDC · USDT · NIM on Base'}
+              {inNimiqPay ? 'Powered by Nimiq Pay & Base' : 'EVM (USDC · USDT) · NIM on Base'}
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gradient leading-tight mb-4">
               The fastest way to<br />
@@ -216,7 +240,7 @@ export default function GeneratorPage() {
             <p className="text-neutral-400 text-base leading-relaxed max-w-md mx-auto">
               {inNimiqPay 
                 ? 'Send tips with NIM, USDC, or USDT instantly — just one scan, one tap, done.'
-                : 'Generate a personal tip jar link. Anyone can send you USDC, USDT, or NIM instantly — just one scan, one tap, done.'
+                : 'Paste your EVM or NIM address to generate a QR code. Supporters scan it to tip you in USDC, USDT, or NIM instantly.'
               }
             </p>
           </div>
@@ -237,19 +261,25 @@ export default function GeneratorPage() {
 
                 <div>
                   <label className="text-xs font-medium text-neutral-400 mb-2 block">
-                    Wallet address (Base)
+                    Wallet address (EVM or NIM)
                   </label>
                   <input
                     value={address}
                     onChange={(e) => setAddress(e.target.value.trim())}
-                    placeholder="0x..."
+                    placeholder="0x... or NQ07 0000 0000 ..."
                     spellCheck={false}
                     className="input-base w-full rounded-xl px-4 py-3.5 text-sm font-mono"
                   />
                   {address.length > 0 && !isValid && (
                     <p className="text-red-400/80 text-xs mt-2 flex items-center gap-1.5">
                       <span className="w-1 h-1 rounded-full bg-red-400" />
-                      Invalid address format
+                      {address.startsWith('NQ') ? 'Invalid NIM address format' : 'Invalid EVM address format'}
+                    </p>
+                  )}
+                  {isValid && (
+                    <p className="text-emerald-400/80 text-xs mt-2 flex items-center gap-1.5">
+                      <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                      {isNim ? 'NIM address — QR will be a Nimiq payment URI' : 'EVM address — QR will link to tip page'}
                     </p>
                   )}
                 </div>
@@ -273,7 +303,7 @@ export default function GeneratorPage() {
                   <div>
                     <h2 className="text-sm font-semibold">Your tip jar is ready!</h2>
                     <p className="text-xs text-neutral-500">
-                      {address.slice(0, 6)}...{address.slice(-4)}
+                      {isNim ? 'NIM Payment URI' : `${address.slice(0, 6)}...${address.slice(-4)}`}
                     </p>
                   </div>
                 </div>
@@ -293,7 +323,7 @@ export default function GeneratorPage() {
                   {/* QR Code */}
                   <div className="relative bg-white p-3 rounded-xl">
                     <div className="relative">
-                      <QRCodeCanvas value={tipUrl} size={230} level="H" />
+                      <QRCodeCanvas value={qrContent} size={230} level="H" />
                       {/* Base logo overlay in center */}
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <img src="/icon.png" alt="" className="w-9 h-9 rounded-md border-2 border-white shadow-lg" />
@@ -303,7 +333,7 @@ export default function GeneratorPage() {
 
                   {/* Token badges */}
                   <div className="flex items-center justify-center gap-2 mt-3">
-                    {['USDC', 'USDT', 'NIM'].map((token) => (
+                    {qrTokens.map((token) => (
                       <span
                         key={token}
                         className="px-2.5 py-1 rounded-full bg-white/10 text-white text-[10px] font-bold tracking-wide"
@@ -332,7 +362,7 @@ export default function GeneratorPage() {
                   ) : (
                     <>
                       <IconCopy />
-                      <span className="truncate font-mono">{tipUrl}</span>
+                      <span className="truncate font-mono">{qrContent}</span>
                     </>
                   )}
                 </button>
@@ -390,7 +420,7 @@ export default function GeneratorPage() {
         <footer className="w-full px-6 py-6 border-t border-neutral-800/50 backdrop-blur-sm">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-xs text-neutral-600">
-              BaseTip — Non-custodial tip jar. Send USDC, USDT, or NIM to anyone, anywhere.
+              BaseTip — Non-custodial tip jar. EVM & NIM addresses supported.
             </p>
             <div className="flex items-center gap-4">
               <span className="text-xs text-neutral-600 flex items-center gap-1.5">
