@@ -50,8 +50,6 @@ interface RpcLog {
   blockNumber: string;
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- wagmi onLogs callback has deeply nested generic types */
-
 /* ── Compute the TipSent event topic hash ────────────────── */
 const TIP_SENT_TOPIC = keccak256(toHex('TipSent(address,address,uint256,uint256,uint256)'));
 const MAX_LOG_BLOCK_RANGE = 10_000;
@@ -160,7 +158,6 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
     address: TIP_ROUTER_ADDRESS,
     abi: TIP_ROUTER_ABI,
     eventName: 'TipSent',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onLogs(newLogs: any[]) {
       const incoming = newLogs
         .filter((log: any) => log.args.streamer?.toLowerCase() === recipient.toLowerCase())
@@ -189,7 +186,6 @@ export default function TipHistory({ recipient, limit = 20, onLoaded }: TipHisto
     address: TIP_ROUTER_USDT_ADDRESS,
     abi: TIP_ROUTER_USDT_ABI,
     eventName: 'TipSent',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onLogs(newLogs: any[]) {
       const incoming = newLogs
         .filter((log: any) => log.args.streamer?.toLowerCase() === recipient.toLowerCase())
