@@ -9,7 +9,7 @@ import { isNimiqPay } from '@/lib/nimiq';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 /* ── Address Type Detection ──────────────────────────────── */
-const NIM_REGEX = /^NQ\d{2}(\s?\d{4}){8}$/;
+const NIM_REGEX = /^NQ[A-Z0-9]{2}(\s?[A-Z0-9]{4}){8}$/i;
 type AddressType = 'evm' | 'nim' | 'invalid';
 
 function detectAddressType(addr: string): AddressType {
