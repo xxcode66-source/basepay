@@ -242,6 +242,7 @@ export default function GeneratorPage() {
   };
 
   return (
+    <>
     <div className="bg-ambient bg-grid min-h-screen">
       {/* Floating orbs */}
       <div className="orb-container">
@@ -497,54 +498,55 @@ export default function GeneratorPage() {
           </div>
         </footer>
       </main>
-
-      {/* ── Onboarding Modal ──────────────────────────────── */}
-      {showOnboarding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="glass-card glass-card-glow rounded-2xl p-6 max-w-sm w-full space-y-5 animate-scale-in">
-            <div className="text-center space-y-2">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mx-auto text-blue-400">
-                <IconQr />
-              </div>
-              <h2 className="text-lg font-bold">Welcome to BaseTip!</h2>
-              <p className="text-xs text-neutral-400">
-                Generate a QR code for your wallet address. Supporters scan it to tip you instantly.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
-                <div>
-                  <p className="text-xs font-medium">Paste your address</p>
-                  <p className="text-[10px] text-neutral-500">EVM (0x...) or NIM (NQ...) addresses supported</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
-                <div>
-                  <p className="text-xs font-medium">Get your QR code</p>
-                  <p className="text-[10px] text-neutral-500">EVM → tip page link. NIM → payment URI for Nimiq Wallet.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                <div>
-                  <p className="text-xs font-medium">Share it anywhere</p>
-                  <p className="text-[10px] text-neutral-500">Stream overlay, website, bio, or send directly.</p>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={handleDismissOnboarding}
-              className="btn-primary w-full rounded-xl py-3 text-sm font-medium"
-            >
-              Got it!
-            </button>
-          </div>
-        </div>
-      )}
     </div>
+
+    {/* ── Onboarding Modal Overlay ──────────────────────────── */}
+    {showOnboarding && (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center px-6" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}>
+        <div className="glass-card glass-card-glow rounded-2xl p-6 max-w-sm w-full space-y-5 animate-scale-in border border-blue-500/20">
+          <div className="text-center space-y-2">
+            <div className="w-14 h-14 rounded-xl bg-blue-500/10 flex items-center justify-center mx-auto text-blue-400">
+              <IconQr />
+            </div>
+            <h2 className="text-xl font-bold">Welcome to BaseTip!</h2>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Generate a QR code for your wallet address. Supporters scan it to tip you instantly.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <span className="w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+              <div>
+                <p className="text-sm font-medium">Paste your address</p>
+                <p className="text-[11px] text-neutral-500">EVM (0x...) or NIM (NQ...) addresses supported</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+              <div>
+                <p className="text-sm font-medium">Get your QR code</p>
+                <p className="text-[11px] text-neutral-500">EVM → tip page link. NIM → payment URI for Nimiq Wallet.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+              <div>
+                <p className="text-sm font-medium">Share it anywhere</p>
+                <p className="text-[11px] text-neutral-500">Stream overlay, website, bio, or send directly.</p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={handleDismissOnboarding}
+            className="btn-primary w-full rounded-xl py-3.5 text-sm font-semibold"
+          >
+            Got it, let&apos;s go!
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
