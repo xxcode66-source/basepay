@@ -759,9 +759,7 @@ export default function TipPage() {
                         <div className="flex justify-between text-[11px]">
                           <span className="text-neutral-600">Amount</span>
                           <span className="text-neutral-500">
-                            {paymentMethod === 'nim'
-                              ? `◈${(Number(parsedAmount) / 1e5).toFixed(2)}`
-                              : `$${(Number(parsedAmount) / 1e6).toFixed(2)}`}
+                            ${((Number(parsedAmount) / 1e6)).toFixed(2)}
                           </span>
                         </div>
                         <div className="flex justify-between text-[11px]">
@@ -773,9 +771,7 @@ export default function TipPage() {
                         <div className="flex justify-between text-[11px] pt-1.5 border-t border-neutral-800/30">
                           <span className="text-neutral-400 font-medium">Recipient gets</span>
                           <span className="text-emerald-400 font-medium">
-                            {paymentMethod === 'nim'
-                              ? `◈${(Number(recipientReceives) / 1e5).toFixed(2)}`
-                              : `$${(Number(recipientReceives) / 1e6).toFixed(2)}`}
+                            ${((Number(recipientReceives) / 1e6)).toFixed(2)}
                           </span>
                         </div>
                       </div>
