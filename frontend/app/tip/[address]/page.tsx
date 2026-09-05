@@ -39,6 +39,7 @@ import { useNimiqEvm } from '@/lib/useNimiqEvm';
 import ContractBanner from '@/components/ContractBanner';
 import TipHistory from '@/components/TipHistory';
 import ShareButtons from '@/components/ShareButtons';
+import { useToast } from '@/components/Toast';
 
 /* ── Confetti Component ──────────────────────────────────── */
 function Confetti() {
@@ -288,7 +289,11 @@ export default function TipPage() {
   const [goal, setGoalState] = useState(0);
   const [raised, setRaised] = useState(0);
   const [nimAddress, setNimAddress] = useState('');
+  const [completedTxHash, setCompletedTxHash] = useState<string | null>(null);
+  const [completedAmount, setCompletedAmount] = useState('');
+  const [feeExpanded, setFeeExpanded] = useState(false);
   const chainId = useChainId();
+  const { addToast } = useToast();
 
   const validRecipient = isAddress(recipientAddress);
   
@@ -380,8 +385,10 @@ export default function TipPage() {
         args: [recipientAddress, parsedAmount, deadline, currentNonce, Number(v), r, s, message.trim()],
       });
     } catch (err: any) {
+      const msg = err?.shortMessage ?? 'Transaction was rejected or failed.';
+      addToast('error', msg);
       setStep('error');
-      setErrorMsg(err?.shortMessage ?? 'Transaction was rejected or failed.');
+      setErrorMsg(msg);
     }
   };
 
@@ -404,8 +411,10 @@ export default function TipPage() {
       });
       // Step 2 (tip) will be triggered by useEffect when approveConfirmed becomes true
     } catch (err: any) {
+      const msg = err?.shortMessage ?? err?.message ?? 'Transaction was rejected or failed.';
+      addToast('error', msg);
       setStep('error');
-      setErrorMsg(err?.shortMessage ?? err?.message ?? 'Transaction was rejected or failed.');
+      setErrorMsg(msg);
     }
   };
 
@@ -424,8 +433,10 @@ export default function TipPage() {
             args: [recipientAddress, parsedAmount, message.trim()],
           });
         } catch (err: any) {
+          const msg = err?.shortMessage ?? err?.message ?? 'Transaction was rejected or failed.';
+          addToast('error', msg);
           setStep('error');
-          setErrorMsg(err?.shortMessage ?? err?.message ?? 'Transaction was rejected or failed.');
+          setErrorMsg(msg);
         }
       })();
     }
@@ -464,9 +475,14 @@ export default function TipPage() {
       }
       
       setStep('success');
+      setCompletedTxHash(txHash);
+      setCompletedAmount(`${amount} NIM`);
+      addToast('success', `Sent ${amount} NIM successfully!`, txHash);
     } catch (err: any) {
+      const msg = err?.message ?? 'NIM transfer failed';
+      addToast('error', msg);
       setStep('error');
-      setErrorMsg(err?.message ?? 'NIM transfer failed');
+      setErrorMsg(msg);
     }
   };
 
@@ -503,9 +519,13 @@ export default function TipPage() {
   useEffect(() => {
     if (tipConfirmed && paymentMethod !== 'nim') {
       setStep('success');
+      const txHashStr = tipHash as string;
+      setCompletedTxHash(txHashStr);
+      setCompletedAmount(`${amount} ${paymentMethod.toUpperCase()}`);
+      addToast('success', `Sent ${amount} ${paymentMethod.toUpperCase()} successfully!`, txHashStr);
       if (message.trim() && senderAddress && tipHash) {
         storeMessage(recipientAddress, {
-          txHash: tipHash as string,
+          txHash: txHashStr,
           sender: senderAddress,
           message: message.trim(),
           timestamp: Date.now(),
@@ -521,6 +541,8 @@ export default function TipPage() {
     setAmount('5');
     setMessage('');
     setNimAddress('');
+    setCompletedTxHash(null);
+    setCompletedAmount('');
   };
 
   if (!validRecipient) {
@@ -596,20 +618,46 @@ export default function TipPage() {
           {step === 'success' ? (
             <>
               <Confetti />
-              <div className="space-y-6 animate-scale-in">
+              <div className="space-y-5 animate-scale-in">
                 {/* Success Card */}
-                <div className="glass-card glass-card-glow rounded-2xl p-8 text-center space-y-4 border-emerald-500/20 animate-glow-pulse">
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400 animate-success-bounce">
-                    <IconCheck />
+                <div className="glass-card glass-card-glow rounded-2xl p-6 text-center space-y-4 border-emerald-500/20 animate-glow-pulse">
+                  {/* Animated checkmark */}
+                  <div className="relative w-20 h-20 mx-auto">
+                    <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
+                    <div className="relative w-20 h-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center text-emerald-400 animate-success-bounce">
+                      <IconCheck />
+                    </div>
                   </div>
+                  
                   <div>
-                    <h2 className="text-lg font-semibold text-emerald-400 mb-1">
-                      Tip sent successfully!
+                    <h2 className="text-xl font-bold text-emerald-400 mb-1">
+                      Tip Sent!
                     </h2>
-                    <p className="text-sm text-neutral-400">
-                      ${amount} {paymentMethod.toUpperCase()} has been sent.
+                    <p className="text-2xl font-bold text-white">
+                      {completedAmount || `${amount} ${paymentMethod.toUpperCase()}`}
+                    </p>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      to {recipientAddress.slice(0, 6)}...{recipientAddress.slice(-4)}
                     </p>
                   </div>
+
+                  {/* Basescan Link */}
+                  {completedTxHash && (
+                    <a
+                      href={`https://basescan.org/tx/${completedTxHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                      View on Basescan
+                    </a>
+                  )}
+
                   <button
                     onClick={resetFlow}
                     className="btn-primary w-full rounded-xl py-3 text-sm font-medium"
@@ -618,9 +666,9 @@ export default function TipPage() {
                   </button>
                 </div>
 
-                {/* Share after success */}
+                {/* Share after success - prominent */}
                 <div className="glass-card rounded-xl p-4 space-y-3">
-                  <p className="text-xs text-neutral-500">Share this tip jar</p>
+                  <p className="text-xs font-medium text-neutral-400 text-center">Share this tip jar with others</p>
                   <ShareButtons url={tipUrl} address={recipientAddress} />
                 </div>
               </div>
@@ -684,23 +732,52 @@ export default function TipPage() {
                   ))}
                 </div>
 
-                {/* Fee Breakdown */}
+                {/* Fee Breakdown - Collapsible */}
                 {parsedAmount > 0n && (
-                  <div className="border-t border-neutral-800/50 pt-4 space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-neutral-500">Recipient receives</span>
-                      <span className="text-neutral-200 font-medium">
+                  <div className="border-t border-neutral-800/50 pt-3">
+                    <button
+                      onClick={() => setFeeExpanded(!feeExpanded)}
+                      className="flex items-center justify-between w-full text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+                    >
+                      <span>Recipient receives <span className="text-neutral-200 font-medium">
                         {paymentMethod === 'nim'
                           ? `◈${(Number(recipientReceives) / 1e5).toFixed(2)}`
                           : `$${(Number(recipientReceives) / 1e6).toFixed(2)}`}
+                      </span></span>
+                      <span className="flex items-center gap-1">
+                        {paymentMethod !== 'nim' && <span className="text-[10px]">5% fee</span>}
+                        <svg
+                          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                          className={`transition-transform ${feeExpanded ? 'rotate-180' : ''}`}
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
                       </span>
-                    </div>
-                    {paymentMethod !== 'nim' && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-neutral-500">Platform fee (5%)</span>
-                        <span className="text-neutral-500">
-                          ${(Number(feeAmount) / 1e6).toFixed(2)}
-                        </span>
+                    </button>
+                    {feeExpanded && paymentMethod !== 'nim' && (
+                      <div className="mt-2 space-y-1.5 animate-fade-in">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-neutral-600">Amount</span>
+                          <span className="text-neutral-500">
+                            {paymentMethod === 'nim'
+                              ? `◈${(Number(parsedAmount) / 1e5).toFixed(2)}`
+                              : `$${(Number(parsedAmount) / 1e6).toFixed(2)}`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-neutral-600">Platform fee (5%)</span>
+                          <span className="text-neutral-500">
+                            -${(Number(feeAmount) / 1e6).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px] pt-1.5 border-t border-neutral-800/30">
+                          <span className="text-neutral-400 font-medium">Recipient gets</span>
+                          <span className="text-emerald-400 font-medium">
+                            {paymentMethod === 'nim'
+                              ? `◈${(Number(recipientReceives) / 1e5).toFixed(2)}`
+                              : `$${(Number(recipientReceives) / 1e6).toFixed(2)}`}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -716,7 +793,7 @@ export default function TipPage() {
                   <input
                     type="text"
                     value={nimAddress}
-                    onChange={(e) => setNimAddress(e.target.value.trim())}
+                    onChange={(e) => setNimAddress(e.target.value)}
                     placeholder="NQ07 0000 0000 0000 0000 0000 0000 0000 0000"
                     disabled={isBusy}
                     className="input-base w-full rounded-lg px-3 py-2.5 text-sm font-mono"

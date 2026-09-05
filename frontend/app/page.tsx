@@ -28,6 +28,34 @@ function getNimiqPaymentUri(addr: string): string {
   return `nimiq:${nimToRaw(addr)}`;
 }
 
+/* ── Recent Addresses (localStorage) ─────────────────────── */
+const RECENT_ADDRESSES_KEY = 'basetip:recentAddresses';
+const MAX_RECENT = 5;
+
+function getRecentAddresses(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(RECENT_ADDRESSES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentAddress(addr: string) {
+  if (typeof window === 'undefined') return;
+  const recent = getRecentAddresses().filter((a) => a.toLowerCase() !== addr.toLowerCase());
+  recent.unshift(addr);
+  localStorage.setItem(RECENT_ADDRESSES_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
+}
+
+function shortAddr(addr: string): string {
+  if (addr.startsWith('NQ')) {
+    return `${addr.slice(0, 8)}...${addr.slice(-4)}`;
+  }
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
+
 function drawRoundedRect(
   context: CanvasRenderingContext2D,
   x: number,
@@ -80,12 +108,25 @@ export default function GeneratorPage() {
   const [submitted, setSubmitted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [inNimiqPay, setInNimiqPay] = useState(false);
+  const [recentAddresses, setRecentAddresses] = useState<string[]>([]);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
 
-  // Detect Nimiq Pay environment after hydration
+  // Detect Nimiq Pay environment and load data after hydration
   useEffect(() => {
     setInNimiqPay(isNimiqPay());
+    setRecentAddresses(getRecentAddresses());
+    // Show onboarding on first visit
+    const hasSeenOnboarding = localStorage.getItem('basetip:seenOnboarding');
+    if (!hasSeenOnboarding) {
+      setShowOnboarding(true);
+    }
   }, []);
+
+  const handleDismissOnboarding = () => {
+    setShowOnboarding(false);
+    localStorage.setItem('basetip:seenOnboarding', 'true');
+  };
 
   const addressType = useMemo(() => detectAddressType(address), [address]);
   const isValid = addressType !== 'invalid';
@@ -287,12 +328,34 @@ export default function GeneratorPage() {
 
                 <button
                   disabled={!isValid}
-                  onClick={() => setSubmitted(true)}
+                  onClick={() => {
+                    saveRecentAddress(cleanAddr);
+                    setRecentAddresses(getRecentAddresses());
+                    setSubmitted(true);
+                  }}
                   className="btn-primary w-full rounded-xl py-3.5 font-medium text-sm flex items-center justify-center gap-2"
                 >
                   Generate Tip Jar
                   <IconArrowRight />
                 </button>
+
+                {/* Recent Addresses */}
+                {recentAddresses.length > 0 && !address && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-neutral-600 uppercase tracking-wider">Recent</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {recentAddresses.slice(0, 3).map((addr) => (
+                        <button
+                          key={addr}
+                          onClick={() => setAddress(addr)}
+                          className="px-2.5 py-1.5 rounded-lg bg-neutral-800/50 hover:bg-neutral-800 border border-neutral-700/50 text-[10px] font-mono text-neutral-400 hover:text-neutral-200 transition-all"
+                        >
+                          {shortAddr(addr)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="glass-card glass-card-glow rounded-2xl p-6 flex flex-col items-center space-y-5 animate-scale-in">
@@ -434,6 +497,54 @@ export default function GeneratorPage() {
           </div>
         </footer>
       </main>
+
+      {/* ── Onboarding Modal ──────────────────────────────── */}
+      {showOnboarding && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card glass-card-glow rounded-2xl p-6 max-w-sm w-full space-y-5 animate-scale-in">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mx-auto text-blue-400">
+                <IconQr />
+              </div>
+              <h2 className="text-lg font-bold">Welcome to BaseTip!</h2>
+              <p className="text-xs text-neutral-400">
+                Generate a QR code for your wallet address. Supporters scan it to tip you instantly.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+                <div>
+                  <p className="text-xs font-medium">Paste your address</p>
+                  <p className="text-[10px] text-neutral-500">EVM (0x...) or NIM (NQ...) addresses supported</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+                <div>
+                  <p className="text-xs font-medium">Get your QR code</p>
+                  <p className="text-[10px] text-neutral-500">EVM → tip page link. NIM → payment URI for Nimiq Wallet.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+                <div>
+                  <p className="text-xs font-medium">Share it anywhere</p>
+                  <p className="text-[10px] text-neutral-500">Stream overlay, website, bio, or send directly.</p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleDismissOnboarding}
+              className="btn-primary w-full rounded-xl py-3 text-sm font-medium"
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

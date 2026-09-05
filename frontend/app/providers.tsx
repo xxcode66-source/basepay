@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { useState, useEffect, type ReactNode } from 'react';
 import { config } from '@/lib/wagmi';
+import { ToastProvider } from '@/components/Toast';
 
 // Note: When running inside Nimiq Pay, the injected window.ethereum provider
 // is used directly for wallet connections. RainbowKit serves as fallback for
@@ -33,7 +34,9 @@ export function Providers({ children }: { children: ReactNode }) {
             borderRadius: 'large',
           })}
         >
-          {children}
+          <ToastProvider>
+            {children}
+          </ToastProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
