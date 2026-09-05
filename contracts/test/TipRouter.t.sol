@@ -32,21 +32,13 @@ contract MockUSDC is ERC20 {
         _mint(to, amount);
     }
 
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external {
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+        external
+    {
         require(block.timestamp <= deadline, "USDC: permit expired");
         uint256 nonce = nonces[owner]++;
-        bytes32 structHash =
-            keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonce, deadline));
-        address recovered =
-            ecrecover(keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)), v, r, s);
+        bytes32 structHash = keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonce, deadline));
+        address recovered = ecrecover(keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)), v, r, s);
         require(recovered == owner, "USDC: invalid signature");
         _approve(owner, spender, value);
     }
@@ -72,11 +64,7 @@ contract TipRouterTest is Test {
         usdc.mint(viewer, 100 * 10 ** 6);
     }
 
-    function _signPermit(uint256 value, uint256 nonce)
-        internal
-        view
-        returns (uint8 v, bytes32 r, bytes32 s)
-    {
+    function _signPermit(uint256 value, uint256 nonce) internal view returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 structHash =
             keccak256(abi.encode(usdc.PERMIT_TYPEHASH(), viewer, address(router), value, nonce, type(uint256).max));
         return vm.sign(viewerPk, keccak256(abi.encodePacked("\x19\x01", usdc.DOMAIN_SEPARATOR(), structHash)));
