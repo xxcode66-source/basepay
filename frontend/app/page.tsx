@@ -15,7 +15,9 @@ type AddressType = 'evm' | 'nim' | 'invalid';
 function detectAddressType(addr: string): AddressType {
   const trimmed = addr.trim();
   if (!trimmed) return 'invalid';
-  if (trimmed.startsWith('0x') && isAddress(trimmed)) return 'evm';
+  // Length guard: EVM = 42 chars, NIM = 36-44 chars (with spaces)
+  if (trimmed.length > 50) return 'invalid';
+  if (trimmed.startsWith('0x') && trimmed.length === 42 && isAddress(trimmed)) return 'evm';
   if (NIM_REGEX.test(trimmed)) return 'nim';
   return 'invalid';
 }
@@ -310,6 +312,7 @@ export default function GeneratorPage() {
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder="0x... or NQ07 0000 0000 ..."
+                    maxLength={50}
                     spellCheck={false}
                     className="input-base w-full rounded-xl px-4 py-3.5 text-sm font-mono"
                   />

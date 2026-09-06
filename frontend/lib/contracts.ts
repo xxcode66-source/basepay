@@ -28,7 +28,7 @@ const chainConfigs: Record<number, ChainConfig> = {
 
   /* ── Robinhood Chain ───────────────────────────────────── */
   [ROBINHOOD_CHAIN_ID]: {
-    tipRouterAddress: (process.env.NEXT_PUBLIC_RH_TIP_ROUTER_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    tipRouterAddress: (process.env.NEXT_PUBLIC_RH_TIP_ROUTER_ADDRESS || '0xCe3dce4b648Ce9D9558aA8c9d3f7d1C166DA9D23') as `0x${string}`,
     tipRouterUsdtAddress: (process.env.NEXT_PUBLIC_RH_TIP_ROUTER_USDT_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`,
     usdcAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
     usdtAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
