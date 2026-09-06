@@ -4,4 +4,4 @@ Allow: /
 Disallow: /overlay/
 
 # Sitemap
-Sitemap: https://basepay-omega.vercel.app/sitemap.xml
+Sitemap: https://basetip.fun/sitemap.xml
