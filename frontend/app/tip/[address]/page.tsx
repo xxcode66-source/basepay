@@ -31,7 +31,12 @@ import {
   TIP_ROUTER_USDT_ABI,
   USDC_PERMIT_DOMAIN,
   USDC_PERMIT_TYPES,
+  USDG_ADDRESS,
+  USDG_DECIMALS,
+  USDG_PERMIT_DOMAIN,
+  getChainConfig,
 } from '@/lib/contracts';
+import { BASE_CHAIN_ID, ROBINHOOD_CHAIN_ID, SUPPORTED_CHAIN_IDS, getExplorerUrl, getExplorerName } from '@/lib/chains';
 import { DisplayName } from '@/lib/basename';
 import { IconAlert, IconTarget, IconMessage } from '@/lib/ui-icons';
 import { isNimiqPay, useNimiqProvider } from '@/lib/nimiq';
@@ -74,7 +79,6 @@ function Confetti() {
 /* ── Constants ───────────────────────────────────────────── */
 const QUICK_AMOUNTS = [1, 5, 10, 25];
 const PLATFORM_FEE_BPS = 500;
-const BASE_MAINNET_CHAIN_ID = 8453;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 /* ── NIM Address Validation ──────────────────────────────── */
@@ -88,7 +92,7 @@ function formatNimError(addr: string): string {
   return 'Invalid NIM address format (expected: NQ07 0000 0000 0000 0000 0000 0000 0000 0000)';
 }
 
-type PaymentMethod = 'usdc' | 'usdt' | 'nim';
+type PaymentMethod = 'usdc' | 'usdt' | 'usdg' | 'nim';
 type Step = 'idle' | 'signing' | 'approving' | 'tipping' | 'success' | 'error';
 
 /* ── localStorage helpers ────────────────────────────────── */
@@ -134,17 +138,21 @@ function PaymentMethodSelector({
   current,
   onChange,
   showNim,
+  isRobinhood,
   disabled,
 }: {
   current: PaymentMethod;
   onChange: (method: PaymentMethod) => void;
   showNim: boolean;
+  isRobinhood: boolean;
   disabled: boolean;
 }) {
-  const methods: Array<{ id: PaymentMethod; label: string; symbol: string }> = [
-    { id: 'usdc', label: 'USDC', symbol: '$' },
-    { id: 'usdt', label: 'USDT', symbol: '$' },
-  ];
+  const methods: Array<{ id: PaymentMethod; label: string; symbol: string }> = isRobinhood
+    ? [{ id: 'usdg', label: 'USDG', symbol: '$' }]
+    : [
+        { id: 'usdc', label: 'USDC', symbol: '$' },
+        { id: 'usdt', label: 'USDT', symbol: '$' },
+      ];
   if (showNim) {
     methods.push({ id: 'nim', label: 'NIM', symbol: '◈' });
   }
@@ -273,7 +281,7 @@ export default function TipPage() {
   const params = useParams<{ address: string }>();
   const recipientAddress = params.address as Address;
   const { address: senderAddress, isConnected, isConnecting } = useAccount();
-  const { data: walletClient } = useWalletClient({ chainId: BASE_MAINNET_CHAIN_ID });
+  const { data: walletClient } = useWalletClient();
 
   // Nimiq integration
   const nimiqEnv = isNimiqPay();
@@ -295,15 +303,41 @@ export default function TipPage() {
   const chainId = useChainId();
   const { addToast } = useToast();
 
+  // Chain-aware config
+  const cc = getChainConfig(chainId);
+  const isBase = chainId === BASE_CHAIN_ID;
+  const isRobinhood = chainId === ROBINHOOD_CHAIN_ID;
+  const isSupportedChain = (SUPPORTED_CHAIN_IDS as readonly number[]).includes(chainId);
+  const explorerUrl = getExplorerUrl(chainId);
+  const explorerName = getExplorerName(chainId);
+
+  // Resolve token/router addresses for current chain
+  const tokenAddress = paymentMethod === 'usdg' ? USDG_ADDRESS
+    : paymentMethod === 'usdt' ? cc.tipRouterAddress === '0x0000000000000000000000000000000000000000' ? USDT_ADDRESS : cc.usdtAddress
+    : cc.usdcAddress;
+  const routerAddress = paymentMethod === 'usdt' ? cc.tipRouterUsdtAddress : cc.tipRouterAddress;
+  const tokenDecimals = paymentMethod === 'usdg' ? USDG_DECIMALS
+    : paymentMethod === 'usdt' ? USDT_DECIMALS
+    : paymentMethod === 'nim' ? 5 : USDC_DECIMALS;
+
   const validRecipient = isAddress(recipientAddress);
   
   // Parse amount based on payment method
-  const decimals = paymentMethod === 'nim' ? 5 : (paymentMethod === 'usdt' ? USDT_DECIMALS : USDC_DECIMALS);
-  const parsedAmount = amount ? parseUnits(amount, decimals) : 0n;
+  const parsedAmount = amount ? parseUnits(amount, tokenDecimals) : 0n;
 
   // Fee calculation (NIM has no platform fee)
   const feeAmount = paymentMethod === 'nim' ? 0n : (parsedAmount * BigInt(PLATFORM_FEE_BPS) + 9999n) / 10000n;
   const recipientReceives = parsedAmount - feeAmount;
+
+  // Auto-switch payment method when chain changes
+  useEffect(() => {
+    if (isRobinhood && (paymentMethod === 'usdc' || paymentMethod === 'usdt')) {
+      setPaymentMethod('usdg');
+    } else if (isBase && paymentMethod === 'usdg') {
+      setPaymentMethod('usdc');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chainId]);
 
   // Load goal from localStorage
   useEffect(() => {
@@ -313,7 +347,7 @@ export default function TipPage() {
   }, [recipientAddress, validRecipient]);
 
   // Calculate total raised from TipHistory events
-  const handleHistoryLoaded = (events: { streamerAmount: bigint; token: 'USDC' | 'USDT' }[]) => {
+  const handleHistoryLoaded = (events: { streamerAmount: bigint; token: 'USDC' | 'USDT' | 'USDG' }[]) => {
     // Filter events by selected payment method (NIM has no on-chain events)
     const filtered = paymentMethod === 'nim' 
       ? [] 
@@ -323,11 +357,11 @@ export default function TipPage() {
   };
 
   const { data: nonceData } = useReadContract({
-    address: USDC_ADDRESS,
+    address: tokenAddress,
     abi: ERC20_ABI,
     functionName: 'nonces',
     args: senderAddress ? [senderAddress] : undefined,
-    query: { enabled: !!senderAddress },
+    query: { enabled: !!senderAddress && paymentMethod !== 'nim' },
   });
   const currentNonce = (nonceData as bigint | undefined) ?? 0n;
   const { writeContractAsync: writeTip, data: tipHash } = useWriteContract();
@@ -349,10 +383,13 @@ export default function TipPage() {
       if (!walletClient || !senderAddress) {
         throw new Error('Wallet is not ready. Please reconnect your wallet and try again.');
       }
-      const permitDomain = USDC_PERMIT_DOMAIN(USDC_ADDRESS, BASE_MAINNET_CHAIN_ID);
+      // Determine permit domain based on chain/token
+      const permitDomain = isRobinhood
+        ? USDG_PERMIT_DOMAIN(USDG_ADDRESS, chainId)
+        : USDC_PERMIT_DOMAIN(tokenAddress, chainId);
       const permitMessage = {
         owner: senderAddress,
-        spender: TIP_ROUTER_ADDRESS,
+        spender: routerAddress,
         value: parsedAmount,
         nonce: currentNonce,
         deadline,
@@ -378,8 +415,8 @@ export default function TipPage() {
       setStep('tipping');
       await writeTip({
         account: senderAddress!,
-        chainId: BASE_MAINNET_CHAIN_ID,
-        address: TIP_ROUTER_ADDRESS,
+        chainId,
+        address: routerAddress,
         abi: TIP_ROUTER_ABI,
         functionName: 'tip',
         args: [recipientAddress, parsedAmount, deadline, currentNonce, Number(v), r, s, message.trim()],
@@ -399,15 +436,15 @@ export default function TipPage() {
         throw new Error('Wallet is not ready.');
       }
       
-      // Step 1: Approve USDT
+      // Step 1: Approve
       setStep('approving');
       await writeApprove({
         account: senderAddress,
-        chainId: BASE_MAINNET_CHAIN_ID,
-        address: USDT_ADDRESS,
+        chainId,
+        address: tokenAddress,
         abi: ERC20_APPROVE_ABI,
         functionName: 'approve',
-        args: [TIP_ROUTER_USDT_ADDRESS, parsedAmount],
+        args: [routerAddress, parsedAmount],
       });
       // Step 2 (tip) will be triggered by useEffect when approveConfirmed becomes true
     } catch (err: any) {
@@ -426,8 +463,8 @@ export default function TipPage() {
           setStep('tipping');
           await writeTip({
             account: senderAddress!,
-            chainId: BASE_MAINNET_CHAIN_ID,
-            address: TIP_ROUTER_USDT_ADDRESS,
+            chainId,
+            address: routerAddress,
             abi: TIP_ROUTER_USDT_ABI,
             functionName: 'tip',
             args: [recipientAddress, parsedAmount, message.trim()],
@@ -499,16 +536,16 @@ export default function TipPage() {
       }
       await sendNimTip();
     } else if (paymentMethod === 'usdt') {
-      if (chainId !== BASE_MAINNET_CHAIN_ID) {
+      if (!isSupportedChain) {
         setStep('error');
-        setErrorMsg('Please switch to Base mainnet');
+        setErrorMsg('Please switch to Base or Robinhood Chain');
         return;
       }
       await sendUsdtTip();
     } else {
-      if (chainId !== BASE_MAINNET_CHAIN_ID) {
+      if (!isSupportedChain) {
         setStep('error');
-        setErrorMsg('Please switch to Base mainnet');
+        setErrorMsg('Please switch to Base or Robinhood Chain');
         return;
       }
       await sendUsdcTip();
@@ -644,7 +681,7 @@ export default function TipPage() {
                   {/* Basescan Link */}
                   {completedTxHash && (
                     <a
-                      href={`https://basescan.org/tx/${completedTxHash}`}
+                      href={`${explorerUrl}/tx/${completedTxHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
@@ -654,7 +691,7 @@ export default function TipPage() {
                         <polyline points="15 3 21 3 21 9" />
                         <line x1="10" y1="14" x2="21" y2="3" />
                       </svg>
-                      View on Basescan
+                      View on {explorerName}
                     </a>
                   )}
 
@@ -678,8 +715,9 @@ export default function TipPage() {
               {/* Payment Method Selector */}
               <PaymentMethodSelector
                 current={paymentMethod}
-                onChange={setPaymentMethod}
+                onChange={(m) => { setPaymentMethod(m); }}
                 showNim={canShowNim}
+                isRobinhood={isRobinhood}
                 disabled={isBusy}
               />
 
@@ -884,7 +922,7 @@ export default function TipPage() {
               )}
 
               <p className="text-center text-neutral-600 text-[11px]">
-                Non-custodial · Funds go directly to the recipient · {paymentMethod === 'nim' ? 'Nimiq Network' : 'Base network'}
+                Non-custodial · Funds go directly to the recipient · {paymentMethod === 'nim' ? 'Nimiq Network' : isRobinhood ? 'Robinhood Chain' : 'Base network'}
               </p>
 
               {/* ── Contract Verification ────────────────── */}

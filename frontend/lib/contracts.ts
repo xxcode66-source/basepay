@@ -1,15 +1,66 @@
-// USDC Router (existing)
-export const TIP_ROUTER_ADDRESS = process.env.NEXT_PUBLIC_TIP_ROUTER_ADDRESS as `0x${string}`;
-export const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
+import { BASE_CHAIN_ID, ROBINHOOD_CHAIN_ID } from './chains';
+
+/* ══════════════════════════════════════════════════════════
+   Multi-chain contract addresses
+   ══════════════════════════════════════════════════════════ */
+
+interface ChainConfig {
+  tipRouterAddress: `0x${string}`;
+  tipRouterUsdtAddress: `0x${string}`;
+  usdcAddress: `0x${string}`;
+  usdtAddress: `0x${string}`;
+  usdgAddress: `0x${string}`;
+  rpcUrl: string;
+  explorerUrl: string;
+}
+
+const chainConfigs: Record<number, ChainConfig> = {
+  /* ── Base Mainnet ──────────────────────────────────────── */
+  [BASE_CHAIN_ID]: {
+    tipRouterAddress: (process.env.NEXT_PUBLIC_TIP_ROUTER_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    tipRouterUsdtAddress: (process.env.NEXT_PUBLIC_TIP_ROUTER_USDT_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    usdcAddress: (process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913') as `0x${string}`,
+    usdtAddress: (process.env.NEXT_PUBLIC_USDT_ADDRESS || '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2') as `0x${string}`,
+    usdgAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+    rpcUrl: process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org',
+    explorerUrl: 'https://basescan.org',
+  },
+
+  /* ── Robinhood Chain ───────────────────────────────────── */
+  [ROBINHOOD_CHAIN_ID]: {
+    tipRouterAddress: (process.env.NEXT_PUBLIC_RH_TIP_ROUTER_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    tipRouterUsdtAddress: (process.env.NEXT_PUBLIC_RH_TIP_ROUTER_USDT_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    usdcAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+    usdtAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+    usdgAddress: (process.env.NEXT_PUBLIC_USDG_ADDRESS || '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168') as `0x${string}`,
+    rpcUrl: process.env.NEXT_PUBLIC_RH_RPC_URL || 'https://rpc.mainnet.chain.robinhood.com',
+    explorerUrl: 'https://robinhoodchain.blockscout.com',
+  },
+};
+
+/* ── Get config for a specific chain ───────────────────── */
+export function getChainConfig(chainId: number): ChainConfig {
+  return chainConfigs[chainId] || chainConfigs[BASE_CHAIN_ID];
+}
+
+/* ── Legacy exports (backward compat — defaults to Base) ── */
+export const TIP_ROUTER_ADDRESS = chainConfigs[BASE_CHAIN_ID].tipRouterAddress;
+export const USDC_ADDRESS = chainConfigs[BASE_CHAIN_ID].usdcAddress;
 export const USDC_DECIMALS = 6;
 
-// USDT Router (new)
-export const TIP_ROUTER_USDT_ADDRESS = process.env.NEXT_PUBLIC_TIP_ROUTER_USDT_ADDRESS as `0x${string}`;
-export const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_ADDRESS as `0x${string}`;
+export const TIP_ROUTER_USDT_ADDRESS = chainConfigs[BASE_CHAIN_ID].tipRouterUsdtAddress;
+export const USDT_ADDRESS = chainConfigs[BASE_CHAIN_ID].usdtAddress;
 export const USDT_DECIMALS = 6;
 
-// Base RPC URL (configurable via env)
-export const BASE_RPC_URL = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org';
+export const BASE_RPC_URL = chainConfigs[BASE_CHAIN_ID].rpcUrl;
+
+/* ── USDG (Robinhood Chain) ────────────────────────────── */
+export const USDG_ADDRESS = chainConfigs[ROBINHOOD_CHAIN_ID].usdgAddress;
+export const USDG_DECIMALS = 6;
+
+/* ══════════════════════════════════════════════════════════
+   ABIs
+   ══════════════════════════════════════════════════════════ */
 
 export const TIP_ROUTER_ABI = [{
   type: 'function', name: 'tip',
@@ -56,8 +107,17 @@ export const ERC20_APPROVE_ABI = [
   { type: 'function', name: 'allowance', inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' },
 ] as const;
 
+/* ══════════════════════════════════════════════════════════
+   Permit helpers
+   ══════════════════════════════════════════════════════════ */
+
 export const USDC_PERMIT_DOMAIN = (usdcAddress: `0x${string}`, chainId: number) => ({
   name: 'USD Coin', version: '2', chainId, verifyingContract: usdcAddress,
+}) as const;
+
+// USDG uses different domain: name = "Global Dollar", version = "1"
+export const USDG_PERMIT_DOMAIN = (usdgAddress: `0x${string}`, chainId: number) => ({
+  name: 'Global Dollar', version: '1', chainId, verifyingContract: usdgAddress,
 }) as const;
 
 export const USDC_PERMIT_TYPES = {

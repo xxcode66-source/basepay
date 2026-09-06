@@ -1,6 +1,8 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { useChainId } from 'wagmi';
+import { getExplorerUrl, getExplorerName } from '@/lib/chains';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -67,6 +69,9 @@ function ToastContainer() {
 
 /* ── Individual Toast ────────────────────────────────────── */
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
+  const chainId = useChainId();
+  const explorerUrl = getExplorerUrl(chainId);
+  const explorerName = getExplorerName(chainId);
   const colors = {
     success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
     error: 'border-red-500/30 bg-red-500/10 text-red-400',
@@ -79,8 +84,8 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     info: 'ℹ',
   };
 
-  const basescanUrl = toast.txHash
-    ? `https://basescan.org/tx/${toast.txHash}`
+  const explorerLink = toast.txHash
+    ? `${explorerUrl}/tx/${toast.txHash}`
     : null;
 
   return (
@@ -91,14 +96,14 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         <span className="text-sm font-bold mt-0.5">{icons[toast.type]}</span>
         <div className="flex-1 min-w-0">
           <p className="text-xs leading-relaxed">{toast.message}</p>
-          {basescanUrl && (
+          {explorerLink && (
             <a
-              href={basescanUrl}
+              href={explorerLink}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[10px] underline opacity-70 hover:opacity-100 mt-1 inline-block"
             >
-              View on Basescan →
+              View on {explorerName} →
             </a>
           )}
         </div>

@@ -1,16 +1,24 @@
 'use client';
 
-import { TIP_ROUTER_ADDRESS, TIP_ROUTER_USDT_ADDRESS } from '@/lib/contracts';
-
-const BASESCAN_URL = 'https://basescan.org';
+import { useChainId } from 'wagmi';
+import { getChainConfig } from '@/lib/contracts';
+import { getExplorerUrl, getExplorerName } from '@/lib/chains';
 
 export default function ContractBanner() {
-  const usdcValid = TIP_ROUTER_ADDRESS && TIP_ROUTER_ADDRESS !== '0x0000000000000000000000000000000000000000';
-  const usdtValid = TIP_ROUTER_USDT_ADDRESS && TIP_ROUTER_USDT_ADDRESS !== '0x0000000000000000000000000000000000000000';
+  const chainId = useChainId();
+  const cc = getChainConfig(chainId);
+  const explorerUrl = getExplorerUrl(chainId);
+  const explorerName = getExplorerName(chainId);
+
+  const usdcValid = cc.tipRouterAddress && cc.tipRouterAddress !== '0x0000000000000000000000000000000000000000';
+  const usdtValid = cc.tipRouterUsdtAddress && cc.tipRouterUsdtAddress !== '0x0000000000000000000000000000000000000000';
 
   if (!usdcValid && !usdtValid) {
     return null;
   }
+
+  // Determine label based on chain
+  const tokenLabel = cc.usdcAddress !== '0x0000000000000000000000000000000000000000' ? 'USDC' : 'USDG';
 
   return (
     <div className="flex flex-col gap-1.5 py-2 px-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
@@ -21,14 +29,14 @@ export default function ContractBanner() {
             <polyline points="9 12 11 14 15 10" />
           </svg>
           <span className="text-[10px] text-neutral-400">
-            USDC verified:{' '}
+            {tokenLabel} verified:{' '}
             <a
-              href={`${BASESCAN_URL}/address/${TIP_ROUTER_ADDRESS}#code`}
+              href={`${explorerUrl}/address/${cc.tipRouterAddress}#code`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-emerald-500 hover:text-emerald-400 transition-colors font-mono"
             >
-              {TIP_ROUTER_ADDRESS.slice(0, 6)}...{TIP_ROUTER_ADDRESS.slice(-4)}
+              {cc.tipRouterAddress.slice(0, 6)}...{cc.tipRouterAddress.slice(-4)}
             </a>
           </span>
         </div>
@@ -42,12 +50,12 @@ export default function ContractBanner() {
           <span className="text-[10px] text-neutral-400">
             USDT verified:{' '}
             <a
-              href={`${BASESCAN_URL}/address/${TIP_ROUTER_USDT_ADDRESS}#code`}
+              href={`${explorerUrl}/address/${cc.tipRouterUsdtAddress}#code`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-emerald-500 hover:text-emerald-400 transition-colors font-mono"
             >
-              {TIP_ROUTER_USDT_ADDRESS.slice(0, 6)}...{TIP_ROUTER_USDT_ADDRESS.slice(-4)}
+              {cc.tipRouterUsdtAddress.slice(0, 6)}...{cc.tipRouterUsdtAddress.slice(-4)}
             </a>
           </span>
         </div>
